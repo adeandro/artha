@@ -1,0 +1,687 @@
+/**
+ * Settings Screen
+ * Category management and PIN change
+ */
+
+import { ThemedText } from "@/components/themed-text";
+import { ArthaColors } from "@/constants/colors";
+import { Strings } from "@/constants/strings";
+import { useAuth } from "@/context/AuthContext";
+import { useCategories } from "@/hooks/storage/useStorage";
+import { Category, TransactionType } from "@/lib/types";
+import React, { useState } from "react";
+import {
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+export const SettingsScreen = () => {
+  const { categories, addCategory, updateCategory, deleteCategory } =
+    useCategories();
+  const { logout } = useAuth();
+
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showChangePinModal, setShowChangePinModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryType, setNewCategoryType] =
+    useState<TransactionType>("expense");
+
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) {
+      Alert.alert("Error", Strings.categoryRequired);
+      return;
+    }
+
+    try {
+      const newCategory: Category = {
+        id: newCategoryName.toLowerCase().replace(/\s+/g, "_"),
+        name: newCategoryName.trim(),
+        type: newCategoryType,
+      };
+      await addCategory(newCategory);
+      setNewCategoryName("");
+      setShowAddModal(false);
+      Alert.alert("Success", Strings.categoryAdded);
+    } catch (e) {
+      Alert.alert("Error", Strings.errorOccurred);
+    }
+  };
+
+  const handleDeleteCategory = (id: string) => {
+    Alert.alert(Strings.deleteCategory, Strings.confirmDelete, [
+      { text: Strings.cancel, style: "cancel" },
+      {
+        text: Strings.delete,
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteCategory(id);
+            Alert.alert("Success", Strings.categoryDeleted);
+          } catch (e) {
+            Alert.alert("Error", Strings.errorOccurred);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleLogout = () => {
+    Alert.alert("Confirm", "Keluar dari aplikasi?", [
+      { text: Strings.cancel, style: "cancel" },
+      {
+        text: Strings.logout,
+        style: "destructive",
+        onPress: () => logout(),
+      },
+    ]);
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <ThemedText type="title" style={styles.title}>
+            {Strings.settings}
+          </ThemedText>
+        </View>
+
+        {/* PIN Section */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            {Strings.pin}
+          </ThemedText>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => setShowChangePinModal(true)}
+          >
+            <ThemedText style={styles.buttonText}>
+              {Strings.changePin}
+            </ThemedText>
+          </TouchableOpacity>
+        </View>
+
+        {/* Categories Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              {Strings.categoryManagement}
+            </ThemedText>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => setShowAddModal(true)}
+            >
+              <ThemedText style={styles.addButtonText}>+</ThemedText>
+            </TouchableOpacity>
+          </View>
+
+          {/* Income Categories */}
+          <View style={styles.categoryGroup}>
+            <ThemedText style={styles.categoryGroupTitle}>
+              {Strings.income}
+            </ThemedText>
+            {categories
+              .filter((c) => c.type === "income")
+              .map((cat) => (
+                <CategoryRow
+                  key={cat.id}
+                  category={cat}
+                  onDelete={() => handleDeleteCategory(cat.id)}
+                />
+              ))}
+          </View>
+
+          {/* Expense Categories */}
+          <View style={styles.categoryGroup}>
+            <ThemedText style={styles.categoryGroupTitle}>
+              {Strings.expense}
+            </ThemedText>
+            {categories
+              .filter((c) => c.type === "expense")
+              .map((cat) => (
+                <CategoryRow
+                  key={cat.id}
+                  category={cat}
+                  onDelete={() => handleDeleteCategory(cat.id)}
+                />
+              ))}
+          </View>
+        </View>
+
+        {/* Logout Section */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={[styles.button, styles.logoutButton]}
+            onPress={handleLogout}
+          >
+            <ThemedText style={styles.logoutButtonText}>
+              {Strings.logout}
+            </ThemedText>
+          </TouchableOpacity>
+        </View>
+
+        {/* About Section */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            {Strings.about}
+          </ThemedText>
+          <View style={styles.aboutContent}>
+            <ThemedText style={styles.aboutLabel}>{Strings.appName}</ThemedText>
+            <ThemedText style={styles.aboutText}>v1.0.0</ThemedText>
+            <ThemedText style={[styles.aboutLabel, { marginTop: 12 }]}>
+              Author
+            </ThemedText>
+            <ThemedText style={styles.aboutText}>Ade Ariawan</ThemedText>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Add Category Modal */}
+      <Modal visible={showAddModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <ThemedText type="subtitle" style={styles.modalTitle}>
+              {Strings.addCategory}
+            </ThemedText>
+
+            <View style={styles.modalSection}>
+              <ThemedText style={styles.label}>
+                {Strings.categoryName}
+              </ThemedText>
+              <TextInput
+                style={styles.input}
+                placeholder={Strings.categoryName}
+                value={newCategoryName}
+                onChangeText={setNewCategoryName}
+                placeholderTextColor={ArthaColors.gray300}
+              />
+            </View>
+
+            <View style={styles.modalSection}>
+              <ThemedText style={styles.label}>{Strings.type}</ThemedText>
+              <View style={styles.typeToggle}>
+                <TouchableOpacity
+                  style={[
+                    styles.typeButton,
+                    newCategoryType === "income" && styles.typeButtonActive,
+                  ]}
+                  onPress={() => setNewCategoryType("income")}
+                >
+                  <ThemedText
+                    style={[
+                      styles.typeButtonText,
+                      newCategoryType === "income" &&
+                        styles.typeButtonTextActive,
+                    ]}
+                  >
+                    {Strings.income}
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.typeButton,
+                    newCategoryType === "expense" && styles.typeButtonActive,
+                  ]}
+                  onPress={() => setNewCategoryType("expense")}
+                >
+                  <ThemedText
+                    style={[
+                      styles.typeButtonText,
+                      newCategoryType === "expense" &&
+                        styles.typeButtonTextActive,
+                    ]}
+                  >
+                    {Strings.expense}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowAddModal(false)}
+              >
+                <ThemedText style={styles.cancelButtonText}>
+                  {Strings.cancel}
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleAddCategory}
+              >
+                <ThemedText style={styles.saveButtonText}>
+                  {Strings.add}
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Change PIN Modal */}
+      <Modal visible={showChangePinModal} transparent animationType="slide">
+        <ChangePinModal onClose={() => setShowChangePinModal(false)} />
+      </Modal>
+    </SafeAreaView>
+  );
+};
+
+interface CategoryRowProps {
+  category: Category;
+  onDelete: () => void;
+}
+
+const CategoryRow: React.FC<CategoryRowProps> = ({ category, onDelete }) => {
+  return (
+    <View style={styles.categoryRow}>
+      <ThemedText style={styles.categoryRowName}>{category.name}</ThemedText>
+      <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
+        <ThemedText style={styles.deleteButtonText}>
+          {Strings.delete}
+        </ThemedText>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+interface ChangePinModalProps {
+  onClose: () => void;
+}
+
+const ChangePinModal: React.FC<ChangePinModalProps> = ({ onClose }) => {
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [step, setStep] = useState<"first" | "confirm">("first");
+  const { setPin: savePin } = useAuth();
+
+  const handleDigitPress = (digit: string) => {
+    if (step === "first" && pin.length < 6) {
+      setPin(pin + digit);
+    } else if (step === "confirm" && confirmPin.length < 6) {
+      setConfirmPin(confirmPin + digit);
+    }
+  };
+
+  const handleDelete = () => {
+    if (step === "first" && pin.length > 0) {
+      setPin(pin.slice(0, -1));
+    } else if (step === "confirm" && confirmPin.length > 0) {
+      setConfirmPin(confirmPin.slice(0, -1));
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (step === "first") {
+      if (pin.length !== 6) {
+        Alert.alert("Error", Strings.pinMustBe6Digits);
+        return;
+      }
+      setStep("confirm");
+    } else {
+      if (confirmPin.length !== 6) {
+        Alert.alert("Error", Strings.pinMustBe6Digits);
+        return;
+      }
+      if (pin !== confirmPin) {
+        Alert.alert("Error", Strings.pinNotMatch);
+        setPin("");
+        setConfirmPin("");
+        setStep("first");
+        return;
+      }
+      const success = await savePin(pin);
+      if (success) {
+        Alert.alert("Success", Strings.pinSetSuccessfully);
+        onClose();
+      }
+    }
+  };
+
+  const currentPin = step === "first" ? pin : confirmPin;
+  const isReady =
+    (step === "first" && pin.length === 6) ||
+    (step === "confirm" && confirmPin.length === 6);
+
+  return (
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalContent}>
+        <ThemedText type="subtitle" style={styles.modalTitle}>
+          {Strings.changePin}
+        </ThemedText>
+
+        {/* PIN Display */}
+        <View style={styles.pinDisplay}>
+          {[...Array(6)].map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.pinDot,
+                i < currentPin.length && styles.pinDotFilled,
+              ]}
+            />
+          ))}
+        </View>
+
+        {/* Numeric Keypad */}
+        <View style={styles.keypad}>
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => (
+            <TouchableOpacity
+              key={digit}
+              style={styles.key}
+              onPress={() => handleDigitPress(digit.toString())}
+            >
+              <ThemedText style={styles.keyText}>{digit}</ThemedText>
+            </TouchableOpacity>
+          ))}
+
+          <TouchableOpacity
+            style={styles.key}
+            onPress={() => handleDigitPress("0")}
+          >
+            <ThemedText style={styles.keyText}>0</ThemedText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.key, styles.deleteKey]}
+            onPress={handleDelete}
+          >
+            <ThemedText style={styles.deleteKeyText}>⌫</ThemedText>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.modalActions}>
+          <TouchableOpacity
+            style={[styles.modalButton, styles.cancelButton]}
+            onPress={onClose}
+          >
+            <ThemedText style={styles.cancelButtonText}>
+              {Strings.cancel}
+            </ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.modalButton,
+              styles.saveButton,
+              !isReady && styles.saveButtonDisabled,
+            ]}
+            onPress={handleSubmit}
+            disabled={!isReady}
+          >
+            <ThemedText style={styles.saveButtonText}>
+              {step === "first" ? Strings.confirmPin : Strings.save}
+            </ThemedText>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: ArthaColors.gray50,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  header: {
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: ArthaColors.primaryDark,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: ArthaColors.primaryDark,
+  },
+  button: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    backgroundColor: ArthaColors.primaryAccent,
+    alignItems: "center",
+  },
+  buttonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ArthaColors.white,
+  },
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: ArthaColors.primaryAccent,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  addButtonText: {
+    fontSize: 24,
+    color: ArthaColors.white,
+    fontWeight: "bold",
+  },
+  categoryGroup: {
+    marginBottom: 16,
+  },
+  categoryGroupTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: ArthaColors.gray500,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+  categoryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+    backgroundColor: ArthaColors.white,
+    borderRadius: 6,
+  },
+  categoryRowName: {
+    fontSize: 14,
+    color: ArthaColors.primaryDark,
+    flex: 1,
+  },
+  deleteButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    backgroundColor: ArthaColors.error,
+  },
+  deleteButtonText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: ArthaColors.white,
+  },
+  logoutButton: {
+    backgroundColor: ArthaColors.error,
+  },
+  logoutButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ArthaColors.white,
+  },
+  aboutContent: {
+    backgroundColor: ArthaColors.gray100,
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 8,
+  },
+  aboutLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: ArthaColors.gray600,
+  },
+  aboutText: {
+    fontSize: 14,
+    color: ArthaColors.text,
+    marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: ArthaColors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 32,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: ArthaColors.primaryDark,
+    marginBottom: 16,
+  },
+  modalSection: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ArthaColors.primaryDark,
+    marginBottom: 8,
+  },
+  input: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: ArthaColors.gray200,
+    fontSize: 14,
+    color: ArthaColors.primaryDark,
+  },
+  typeToggle: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 6,
+    backgroundColor: ArthaColors.gray100,
+    borderWidth: 2,
+    borderColor: ArthaColors.gray200,
+    alignItems: "center",
+  },
+  typeButtonActive: {
+    backgroundColor: ArthaColors.primaryAccent,
+    borderColor: ArthaColors.primaryAccent,
+  },
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ArthaColors.gray600,
+  },
+  typeButtonTextActive: {
+    color: ArthaColors.white,
+  },
+  pinDisplay: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+    marginBottom: 24,
+  },
+  pinDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: ArthaColors.gray300,
+  },
+  pinDotFilled: {
+    backgroundColor: ArthaColors.primaryAccent,
+    borderColor: ArthaColors.primaryAccent,
+  },
+  keypad: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 12,
+    marginBottom: 24,
+  },
+  key: {
+    width: "28%",
+    aspectRatio: 1.2,
+    borderRadius: 8,
+    backgroundColor: ArthaColors.gray100,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deleteKey: {
+    backgroundColor: ArthaColors.error,
+  },
+  keyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: ArthaColors.primaryDark,
+  },
+  deleteKeyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: ArthaColors.white,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 6,
+    alignItems: "center",
+  },
+  cancelButton: {
+    backgroundColor: ArthaColors.gray200,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ArthaColors.gray600,
+  },
+  saveButton: {
+    backgroundColor: ArthaColors.primaryAccent,
+  },
+  saveButtonDisabled: {
+    opacity: 0.5,
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ArthaColors.white,
+  },
+});
+
+export default SettingsScreen;
