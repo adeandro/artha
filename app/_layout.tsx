@@ -8,7 +8,7 @@ import {
 } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import "react-native-reanimated";
 
@@ -19,18 +19,11 @@ export const unstable_settings = {
 function RootLayoutInner() {
   const colorScheme = useColorScheme();
   const { isAuthenticated, isPinSetup, isLoading } = useAuth();
-  const [renderKey, setRenderKey] = useState(0);
-
-  useEffect(() => {
-    // Force re-render when auth state changes
-    setRenderKey((prev) => prev + 1);
-  }, [isAuthenticated, isPinSetup, isLoading]);
 
   // If auth is still loading, show loading screen
   if (isLoading) {
     return (
       <View
-        key={`loading-${renderKey}`}
         style={{
           flex: 1,
           justifyContent: "center",
@@ -47,10 +40,14 @@ function RootLayoutInner() {
   if (!isPinSetup) {
     return (
       <ThemeProvider
-        key={`setup-${renderKey}`}
         value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
       >
-        <PinEntryScreen mode="setup" onSuccess={() => setRenderKey((p) => p + 1)} />
+        <PinEntryScreen
+          mode="setup"
+          onSuccess={() => {
+            // Auth state will update automatically, triggering re-render
+          }}
+        />
         <StatusBar style="light" />
       </ThemeProvider>
     );
@@ -60,10 +57,14 @@ function RootLayoutInner() {
   if (!isAuthenticated) {
     return (
       <ThemeProvider
-        key={`login-${renderKey}`}
         value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
       >
-        <PinEntryScreen mode="login" onSuccess={() => setRenderKey((p) => p + 1)} />
+        <PinEntryScreen
+          mode="login"
+          onSuccess={() => {
+            // Auth state will update automatically, triggering re-render
+          }}
+        />
         <StatusBar style="light" />
       </ThemeProvider>
     );
@@ -72,7 +73,6 @@ function RootLayoutInner() {
   // If authenticated, show main app with tabs
   return (
     <ThemeProvider
-      key={`app-${renderKey}`}
       value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
     >
       <Stack>

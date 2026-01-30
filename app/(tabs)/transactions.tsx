@@ -50,10 +50,15 @@ export const TransactionsScreen = () => {
       groups[txn.date].push(txn);
     });
 
-    return Object.entries(groups).map(([date, txns]) => ({
-      title: formatDate(date),
-      data: txns,
-    }));
+    // Sort dates from newest to oldest
+    return Object.entries(groups)
+      .sort(([dateA], [dateB]) => 
+        new Date(dateB).getTime() - new Date(dateA).getTime()
+      )
+      .map(([date, txns]) => ({
+        title: formatDate(date),
+        data: txns,
+      }));
   }, [transactions, start, end]);
 
   const handleDelete = async (id: string) => {
@@ -141,7 +146,8 @@ export const TransactionsScreen = () => {
             <ThemedText style={styles.sectionHeader}>{title}</ThemedText>
           )}
           contentContainerStyle={styles.listContent}
-          scrollEnabled={false}
+          scrollEnabled={true}
+          style={styles.listContainer}
         />
       ) : (
         <View style={styles.emptyState}>
@@ -245,6 +251,9 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  listContainer: {
+    flex: 1,
   },
   sectionHeader: {
     fontSize: 12,

@@ -5,37 +5,47 @@
 Setelah deep investigation, ditemukan 3 root cause:
 
 ### 1. **Root Layout Logic Error**
+
 **File:** `app/_layout.tsx`
-**Masalah:** 
+**Masalah:**
+
 - Initial state `showPinSetup = false` menyebabkan app render Stack (tabs) sebelum auth ready
 - Saat Stack render tapi auth masih loading → routing error "artha:///"
 
-**Fix:** 
+**Fix:**
+
 - Tunggu `isLoading === false` sebelum render anything
 - Gunakan explicit conditions: `if (isLoading)` → `if (!isPinSetup)` → `if (!isAuthenticated)` → tabs
 
 ### 2. **Auth State After PIN Setup**
+
 **File:** `context/AuthContext.tsx`
 **Masalah:**
+
 - Function `setPin()` set `isPinSetup = true` tapi tidak set `isAuthenticated = true`
 - Setelah setup PIN, app masih show login screen (tidak langsung ke tabs)
 
 **Fix:**
+
 - Add `setIsAuthenticated(true)` setelah PIN berhasil di-setup
 
 ### 3. **State Re-render Trigger**
+
 **File:** `app/_layout.tsx`
 **Masalah:**
+
 - Setelah PIN setup/login sukses, root layout tidak re-render
 - PinEntryScreen call `onSuccess()` tapi tidak trigger parent re-render
 
 **Fix:**
+
 - Add `renderKey` state yang di-update setiap kali `isAuthenticated`, `isPinSetup`, atau `isLoading` berubah
 - Pass callback `setRenderKey((p) => p + 1)` ke PinEntryScreen `onSuccess`
 
 ## Perubahan Kode
 
-### app/_layout.tsx
+### app/\_layout.tsx
+
 ```typescript
 // Sebelum: showPinSetup initial = false (SALAH)
 const [showPinSetup, setShowPinSetup] = useState(false);
@@ -56,6 +66,7 @@ return <MainApp />;                          // 4. Show tabs
 ```
 
 ### context/AuthContext.tsx
+
 ```typescript
 const setPin = useCallback(
   async (newPin: string): Promise<boolean> => {
@@ -71,6 +82,7 @@ const setPin = useCallback(
 ## Flow Perbaikan
 
 ### Sebelumnya (BROKEN):
+
 ```
 App Start
   ↓
@@ -78,12 +90,13 @@ Root Layout: showPinSetup = false
   ↓
 Render Stack (tabs) IMMEDIATELY
   ↓
-Auth Context: Still loading... 
+Auth Context: Still loading...
   ↓
 Router confused: "artha:///" not found ❌
 ```
 
 ### Sesudah (FIXED):
+
 ```
 App Start
   ↓
@@ -118,6 +131,7 @@ Root Layout: render Stack (tabs) ✅
 ## Debug Tips
 
 Jika masih error, coba:
+
 1. `adb logcat | grep -i error` - lihat Android logs
 2. Open Expo Go dev menu: shake phone → "View Error"
 3. Check browser console if testing on web

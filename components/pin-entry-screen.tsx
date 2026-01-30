@@ -53,6 +53,7 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
       if (mode === "login") {
         const success = await login(pin);
         if (success) {
+          // Auth state will update, root layout will re-render and show dashboard
           onSuccess();
         } else {
           Alert.alert(Strings.pinIncorrect, Strings.pinIncorrect);
@@ -80,6 +81,7 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
           const success = await savePin(pin);
           if (success) {
             Alert.alert("Success", Strings.pinSetSuccessfully);
+            // Auth state will update, root layout will re-render and show dashboard
             onSuccess();
           }
         }

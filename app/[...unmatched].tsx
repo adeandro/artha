@@ -7,7 +7,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Link } from "expo-router";
 import React from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function NotFound() {
@@ -22,9 +22,7 @@ export default function NotFound() {
 
           <Link href="/(tabs)" asChild>
             <TouchableOpacity style={styles.button}>
-              <ThemedText style={styles.buttonText}>
-                Go to Dashboard
-              </ThemedText>
+              <ThemedText style={styles.buttonText}>Go to Dashboard</ThemedText>
             </TouchableOpacity>
           </Link>
 
