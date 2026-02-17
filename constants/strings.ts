@@ -66,6 +66,25 @@ export const Strings = {
   logout: "Keluar",
   about: "Tentang",
 
+  // Export Excel
+  exportExcel: "Ekspor Excel",
+  exportingData: "Sedang mengekspor data...",
+  exportSuccess: "Data berhasil dieksport ke Excel",
+  exportFailed: "Gagal mengeksport data",
+  noDataToExport: "Tidak ada data transaksi untuk dieksport",
+  dataBackup: "Data & Backup",
+
+  // Import Excel
+  importExcel: "Impor Excel",
+  importingData: "Sedang mengimport data...",
+  importSuccess: "Data berhasil diimport",
+  importFailed: "Gagal mengimport data",
+  importSelectFile: "Pilih file Excel untuk diimport",
+  importValidationError: "File tidak valid, mohon periksa kembali",
+  importPartialSuccess: "Sebagian data berhasil diimport",
+  importCompleteMessage: "Berhasil mengimport {count} transaksi",
+  importErrorMessage: "{failed} transaksi gagal diimport",
+
   // Messages
   confirmDelete: "Yakin ingin menghapus?",
   deletedSuccessfully: "Dihapus dengan sukses",

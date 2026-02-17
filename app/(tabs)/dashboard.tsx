@@ -7,18 +7,27 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
-import { useTransactions } from "@/hooks/storage/useStorage";
+import { useCategories, useTransactions } from "@/hooks/storage/useStorage";
 import { formatCurrency } from "@/lib/currency";
 import { formatDate, getCurrentMonth, getMonthDateRange } from "@/lib/date";
+import { exportTransactionsToExcel } from "@/lib/excel-export";
 import { Link } from "expo-router";
-import React, { useMemo } from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export const DashboardScreen = () => {
+const DashboardScreenComponent = () => {
   const { transactions, loading } = useTransactions();
+  const { categories } = useCategories();
   const { year, month } = getCurrentMonth();
   const { start, end } = getMonthDateRange(year, month);
+  const [isExporting, setIsExporting] = useState(false);
 
   const stats = useMemo(() => {
     const monthTransactions = transactions.filter(
@@ -38,8 +47,10 @@ export const DashboardScreen = () => {
     monthTransactions
       .filter((t) => t.type === "expense")
       .forEach((t) => {
+        const categoryName =
+          categories.find((c) => c.id === t.category)?.name || t.category;
         if (!categoryTotals[t.category]) {
-          categoryTotals[t.category] = { name: t.category, amount: 0 };
+          categoryTotals[t.category] = { name: categoryName, amount: 0 };
         }
         categoryTotals[t.category].amount += t.amount;
       });
@@ -60,7 +71,33 @@ export const DashboardScreen = () => {
       topCategories,
       recentTransactions,
     };
-  }, [transactions, start, end]);
+  }, [transactions, start, end, categories]);
+
+  // Handler untuk export data ke Excel
+  const handleExportExcel = async () => {
+    if (transactions.length === 0) {
+      Alert.alert("Info", Strings.noDataToExport);
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      // Buat mapping dari category ID ke nama
+      const categoryMap: Record<string, string> = {};
+      categories.forEach((cat) => {
+        categoryMap[cat.id] = cat.name;
+      });
+
+      // Panggil export function
+      await exportTransactionsToExcel(transactions, categoryMap);
+      Alert.alert("Sukses", Strings.exportSuccess);
+    } catch (error) {
+      Alert.alert("Error", Strings.exportFailed);
+      console.error("Export failed:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -121,6 +158,7 @@ export const DashboardScreen = () => {
             {stats.balance >= 0 ? Strings.surplus : Strings.deficit}
           </ThemedText>
           <ThemedText style={styles.balanceAmount}>
+            {stats.balance >= 0 ? "" : "-"}
             {formatCurrency(Math.abs(stats.balance))}
           </ThemedText>
         </View>
@@ -153,37 +191,42 @@ export const DashboardScreen = () => {
               Transaksi Terakhir
             </ThemedText>
             <View style={styles.recentTransactionsList}>
-              {stats.recentTransactions.map((txn) => (
-                <View
-                  key={txn.id}
-                  style={[
-                    styles.recentTransactionItem,
-                    txn.type === "income"
-                      ? styles.incomeItem
-                      : styles.expenseItem,
-                  ]}
-                >
-                  <View style={styles.recentTxnLeft}>
-                    <ThemedText style={styles.recentTxnCategory}>
-                      {txn.category}
-                    </ThemedText>
-                    <ThemedText style={styles.recentTxnDate}>
-                      {formatDate(txn.date)}
-                    </ThemedText>
-                  </View>
-                  <ThemedText
+              {stats.recentTransactions.map((txn) => {
+                const catName =
+                  categories.find((c) => c.id === txn.category)?.name ||
+                  txn.category;
+                return (
+                  <View
+                    key={txn.id}
                     style={[
-                      styles.recentTxnAmount,
+                      styles.recentTransactionItem,
                       txn.type === "income"
-                        ? styles.incomeAmount
-                        : styles.expenseAmount,
+                        ? styles.incomeItem
+                        : styles.expenseItem,
                     ]}
                   >
-                    {txn.type === "income" ? "+" : "-"}
-                    {formatCurrency(txn.amount)}
-                  </ThemedText>
-                </View>
-              ))}
+                    <View style={styles.recentTxnLeft}>
+                      <ThemedText style={styles.recentTxnCategory}>
+                        {catName}
+                      </ThemedText>
+                      <ThemedText style={styles.recentTxnDate}>
+                        {formatDate(txn.date)}
+                      </ThemedText>
+                    </View>
+                    <ThemedText
+                      style={[
+                        styles.recentTxnAmount,
+                        txn.type === "income"
+                          ? styles.incomeAmount
+                          : styles.expenseAmount,
+                      ]}
+                    >
+                      {txn.type === "income" ? "+" : "-"}
+                      {formatCurrency(txn.amount)}
+                    </ThemedText>
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
@@ -194,6 +237,24 @@ export const DashboardScreen = () => {
             <ThemedText style={styles.emptyText}>
               {Strings.noTransactions}
             </ThemedText>
+          </View>
+        )}
+
+        {/* Export Button */}
+        {transactions.length > 0 && (
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={[
+                styles.exportButton,
+                isExporting && styles.buttonDisabled,
+              ]}
+              onPress={handleExportExcel}
+              disabled={isExporting}
+            >
+              <ThemedText style={styles.exportButtonText}>
+                {isExporting ? Strings.exportingData : Strings.exportExcel}
+              </ThemedText>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -271,7 +332,7 @@ const styles = StyleSheet.create({
     backgroundColor: ArthaColors.primaryDark,
   },
   balanceNegative: {
-    backgroundColor: ArthaColors.primaryDark,
+    backgroundColor: ArthaColors.error,
   },
   balanceLabel: {
     fontSize: 14,
@@ -366,6 +427,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: ArthaColors.gray500,
   },
+  exportButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: ArthaColors.primaryAccent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  exportButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ArthaColors.white,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
   fabButton: {
     position: "absolute",
     bottom: 24,
@@ -389,4 +466,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default DashboardScreen;
+export const DashboardScreen = DashboardScreenComponent;
+export default DashboardScreenComponent;

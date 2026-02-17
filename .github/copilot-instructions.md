@@ -2,173 +2,183 @@
 
 ## Project Overview
 
-**Artha** is an Expo-based React Native cross-platform mobile app (iOS, Android, web) using file-based routing with `expo-router`.
+**Artha** is an Expo-based React Native personal finance app (iOS, Android, web) using file-based routing with `expo-router`. Local-only storage, no backend. Daily income/expense tracking with PIN authentication.
 
-**Key Technologies:**
-
-- React Native 0.81.5 + React 19.1.0
-- Expo ~54.0.32 with React Compiler experiments enabled
-- expo-router ~6.0.22 for file-based routing (like Next.js)
-- TypeScript 5.9.2 (strict mode)
-- New React Native Architecture enabled (`newArchEnabled: true`)
-
-## Architecture & File Structure
-
-### App Routing
-
-- **`app/` directory**: File-based routing system; directory structure defines routes
-  - `app/_layout.tsx`: Root layout using `<Stack>` navigator
-  - `app/(tabs)/`: Route group defining bottom-tab navigation
-  - `app/(tabs)/index.tsx`: Home screen
-  - `app/(tabs)/explore.tsx`: Explore screen
-  - `app/modal.tsx`: Modal screen
-- Route groups `(tabs)` group related routes; parentheses hide from URL slug
-
-### Component Patterns
-
-- **Themed Components**: Prefer `ThemedText` and `ThemedView` over raw React Native components
-  - Props accept `lightColor` and `darkColor` for light/dark mode overrides
-  - Located in [components/](components/)
-- **Custom Hooks**: Use `useThemeColor()` and `useColorScheme()` for appearance
-  - `useColorScheme` is re-exported from react-native for platform parity
-  - Platform-specific versions exist (`.web.ts` suffix for web-only variants)
-- **Styling**: StyleSheet API with constants in [constants/theme.ts](constants/theme.ts)
-
-### Theme System
-
-- Centralized color definitions in [constants/theme.ts](constants/theme.ts) for light and dark modes
-- `Colors` export includes: `text`, `background`, `tint`, `icon`, `tabIconDefault`, `tabIconSelected`
-- Platform-specific fonts defined via `Fonts` object with fallbacks (iOS, Android, web variants)
-
-## Development Workflows
-
-### Build & Run Commands
-
-```bash
-npm install                    # Install dependencies
-npm run start                  # Start dev server (choose platform interactively)
-npm run android               # Run on Android emulator
-npm run ios                   # Run on iOS simulator
-npm run web                   # Run on web (static output)
-npm run lint                  # Run expo lint (ESLint configured)
-npm run reset-project         # Reset to blank app (moves starter to app-example/)
-```
-
-### Developer Tools
-
-- **iOS**: `cmd + d` to open dev menu
-- **Android**: `cmd + m` to open dev menu
-- **Web**: `F12` for browser dev tools
-
-### Code Quality
-
-- ESLint config: `eslint-config-expo/flat` (flat config format)
-- Ignores: `dist/*` directory
-- TypeScript: strict mode enabled; path alias `@/*` points to project root
-
-## Critical Patterns & Conventions
-
-### Cross-Platform Code
-
-- Use `Platform.select({ ios: ..., android: ..., web: ... })` for platform-specific behavior
-- Platform-specific hook variants: suffix files with `.web.ts` or `.ios.ts` as needed
-- Example: [hooks/use-color-scheme.web.ts](hooks/use-color-scheme.web.ts) is web-specific
-
-### Component Composition
-
-- Always wrap text in `<ThemedText>` to respect theme automatically
-- Use `<ThemedView>` for theme-aware containers
-- Icon components use SF Symbols names on iOS, fallback names on Android/web
-
-### Navigation & Linking
-
-- Use `expo-router` `<Link>` component for navigation (supports nested `<Link.Trigger>`, `<Link.Preview>`, `<Link.Menu>`)
-- Bottom tab navigation via `<Tabs>` with `tabBarButton: HapticTab` for haptic feedback
-- Modal screens use `presentation: 'modal'` option in Stack.Screen
-
-### Image Assets
-
-- Use `expo-image` Image component (newer replacement for react-native Image)
-- Assets located in [assets/images/](assets/images/)
-- Exports: icon, splash-icon, android-icon-foreground/background/monochrome, favicon, etc.
-
-## External Dependencies & Integration Points
-
-- **Navigation**: @react-navigation/native, @react-navigation/bottom-tabs, @react-navigation/elements
-- **Animations**: react-native-reanimated, react-native-worklets
-- **Haptics**: expo-haptics (integrated with HapticTab component)
-- **Vector Icons**: @expo/vector-icons (SF Symbols via expo-symbols)
-- **Layout**: react-native-safe-area-context, react-native-screens
-
-## Important Project Configuration
-
-- `app.json` defines Expo config with typed routes enabled (`experiments.typedRoutes: true`)
-- React Compiler enabled (`experiments.reactCompiler: true`) — new optimization feature
-- Status bar auto-styled via `expo-status-bar`
-- Adaptive splash screen and adaptive icon system for Android
-- Web output is static (`web.output: "static"`)
-
-## Conventions to Follow
-
-1. **Always use path alias**: Import from `@/` rather than relative paths
-2. **Theme awareness**: Check [constants/theme.ts](constants/theme.ts) before hardcoding colors
-3. **Component props**: Follow ThemedComponent patterns (`lightColor`, `darkColor` optional props)
-4. **Platform handling**: Use `Platform.select()` or platform-specific file variants; don't import platform-specific modules directly
-5. **TypeScript**: Maintain strict mode; use proper types for all props and exports
+**Stack**: React Native 0.81.5 + React 19 + Expo ~54 + expo-router ~6 + TypeScript 5.9 (strict)
 
 ---
 
-## Artha Personal Finance App - Specific Architecture
+## Architecture at a Glance
 
-### App Purpose
+### Authentication Flow (Authentication Gate)
 
-Personal finance management for daily income/expense tracking with local-only storage. No backend, no cloud sync, no authentication.
+1. **Entry**: [app/_layout.tsx](app/_layout.tsx) wraps app in `AuthProvider` (React Context)
+2. **States** (managed in [context/AuthContext.tsx](context/AuthContext.tsx)):
+   - `isLoading`: Checking AsyncStorage for saved PIN hash on startup
+   - `isPinSetup`: PIN exists in storage (first launch → false, shows setup screen)
+   - `isAuthenticated`: User successfully entered correct PIN (login state)
+3. **Key Methods**: `login(pin)` → verifies hash, `setPin(newPin)` → stores hashed PIN, `logout()`
+4. **Flow**:
+   - **First Launch**: `isPinSetup=false` → show [PinEntryScreen](components/pin-entry-screen.tsx) in "setup" mode → user sets PIN → saved hashed → auto-authenticated
+   - **Subsequent Launches**: `isAuthenticated=false` → show PinEntryScreen in "login" mode → verify PIN → if valid, auto-authenticated
+   - **Authenticated**: Show main app tabs
 
-### Color Palette (Custom)
+### Main App Structure
 
-- **Primary Dark**: #374F4E (headers, main UI)
-- **Primary Accent**: #D1801E (buttons, highlights)
-- **Secondary Light**: #EDBD95
-- **Neutral Light**: #DACCC4
-- **Neutral Accent**: #AA8552
+Once authenticated, [app/(tabs)/_layout.tsx](app/(tabs)/_layout.tsx) renders 3-tab bottom navigation:
 
-Override theme constants in [constants/colors.ts](constants/colors.ts).
+- **Dashboard** [app/(tabs)/dashboard.tsx](app/(tabs)/dashboard.tsx): Monthly income/expense summary, top 3 categories, add transaction button
+- **Transactions** [app/(tabs)/transactions.tsx](app/(tabs)/transactions.tsx): History list, filter by month, edit/delete individual transactions
+- **Settings** [app/(tabs)/settings.tsx](app/(tabs)/settings.tsx): Category CRUD, change PIN
 
-### Localization
+### Data Persistence Layer
 
-All UI text must be in **Bahasa Indonesia**. String literals stored in [constants/strings.ts](constants/strings.ts).
+[hooks/storage/useStorage.ts](hooks/storage/useStorage.ts) exports three main hooks (all backed by AsyncStorage):
 
-### Data Models
+1. **`useTransactions()`**: Load/save [Transaction](lib/types.ts) array
+   - Methods: `addTransaction()`, `updateTransaction(id, updates)`, `deleteTransaction(id)`
+   - Refreshes on screen focus via `useFocusEffect`
+   - Key: `"artha_transactions"`
 
-- **Transaction**: `{ id, date, type ('income' | 'expense'), category, amount, notes }`
-- **Category**: `{ id, name, type ('income' | 'expense') }`
-- **PIN**: Hashed locally; default `123456`
+2. **`useCategories()`**: Load/save [Category](lib/types.ts) array (initialized with defaults in Bahasa Indonesia)
+   - Methods: `addCategory()`, `updateCategory(id, updates)`, `deleteCategory(id)`
+   - Key: `"artha_categories"`
 
-Storage: `AsyncStorage` for simple key-value; consider `expo-sqlite` for complex queries.
+3. **`usePinStorage()`**: Manage PIN hash and set flag
+   - Methods: `getPinHash()`, `setPinHash(hash)`, `isPinSet()`
+   - Keys: `"artha_pin_hash"`, `"artha_pin_set"`
 
-### Navigation Structure
+---
 
-Bottom Tab Navigation (3 tabs):
+## Project-Specific Conventions
 
-- `dashboard`: Monthly summary + quick transaction add button
-- `transactions`: History, edit, delete; month filter
-- `settings`: Category management, PIN change
+### Localization & UI Text
 
-### Key Screens
+- **All UI text must be in Bahasa Indonesia** (not English)
+- String literals centralized in [constants/strings.ts](constants/strings.ts) — never hardcode strings
+- Example: Import `import { Strings } from "@/constants/strings"`, use `Strings.dashboard`
 
-1. **PIN Entry** (`_layout.tsx` auth gate): Shown before any screen on cold start
-2. **Dashboard** (`app/(tabs)/dashboard.tsx`): Total income, expenses, balance, top 3 categories
-3. **Add Transaction Modal**: Quick form (< 10 sec workflow)
-4. **Transaction History**: Sortable by date, editable
-5. **Category Management**: CRUD operations
-6. **PIN Change**: Force on first login, optional later
+### Colors & Theming
 
-### State Management
+- Custom color palette defined in [constants/colors.ts](constants/colors.ts):
+  - Primary Dark: `#374F4E` (headers)
+  - Primary Accent: `#D1801E` (buttons, highlights)
+  - Neutral tones: `#EDBD95`, `#DACCC4`, `#AA8552`
+- Never hardcode hex colors; use `ArthaColors` export from [constants/colors.ts](constants/colors.ts)
+- Example: `tabBarActiveTintColor: ArthaColors.primaryAccent` (see [app/(tabs)/_layout.tsx](app/(tabs)/_layout.tsx#L15))
 
-Simple approach: Context API + custom hooks in [hooks/](hooks/). No Redux/Zustand required for MVP.
+### Data Types
 
-### Performance Notes
+Located in [lib/types.ts](lib/types.ts); use these consistently:
 
-- Use `useMemo` for category filtering and monthly calculations
-- Lazy load transaction lists with pagination if > 1000 items
-- Minimize re-renders with `memo()` on list item components
+```typescript
+interface Transaction {
+  id: string;
+  date: string; // ISO format YYYY-MM-DD
+  type: "income" | "expense";
+  category: string; // category id
+  amount: number; // IDR
+  notes?: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  type: "income" | "expense";
+}
+```
+
+### PIN & Crypto
+
+- [lib/crypto.ts](lib/crypto.ts) exports `hashPin(pin)`, `verifyPin(pin, hash)`, `getDefaultPinHash()`
+- Default test PIN: `"123456"` (hash stored, never plain text)
+- Always hash before storing; always verify via crypto functions
+
+---
+
+## Development Workflows
+
+### Commands
+
+```bash
+npm run start       # Start dev server (interactive: choose iOS/Android/web)
+npm run android    # Run on Android emulator
+npm run ios        # Run on iOS simulator
+npm run web        # Web static output
+npm run lint       # ESLint check (flat config: eslint-config-expo/flat)
+```
+
+### Code Quality
+
+- **TypeScript**: Strict mode enabled; path alias `@/*` points to workspace root
+- **ESLint**: Flat config, ignores `dist/*`
+- **Structure**: Always use `@/` imports (not relative paths)
+
+### Testing/Debugging
+
+- On iOS simulator: `cmd + d` → dev menu
+- On Android emulator: `cmd + m` → dev menu
+- Web: `F12` for browser dev tools
+- **Storage debugging**: Use `AsyncStorage` DevTools or inspect keys manually during dev
+
+---
+
+## Cross-Platform & Component Patterns
+
+### Platform-Specific Code
+
+- Use `Platform.select({ ios: ..., android: ..., web: ... })` for platform branching
+- File suffix variants: `.web.ts`, `.ios.ts` (e.g., [hooks/use-color-scheme.web.ts](hooks/use-color-scheme.web.ts))
+- Example: Web-only color scheme hook has its own implementation
+
+### Components
+
+- **`ThemedText` / `ThemedView`**: Use for automatic light/dark mode (props: `lightColor`, `darkColor`)
+- **Icons**: Use SF Symbols names (iOS) via `<IconSymbol>` from [components/ui/icon-symbol.tsx](components/ui/icon-symbol.tsx)
+  - Example: `<IconSymbol name="chart.pie.fill" />` in dashboard tab
+- **Haptics**: Tab buttons use `HapticTab` for haptic feedback on press
+
+### Navigation
+
+- Bottom tabs: `<Tabs>` from expo-router; add screens with `<Tabs.Screen>`
+- Modals: Use `presentation: 'modal'` in Stack.Screen options
+- Links: Use expo-router `<Link>` component (supports nested trigger/preview/menu)
+
+---
+
+## Key Files & Their Responsibilities
+
+| File | Purpose |
+|------|---------|
+| [app/_layout.tsx](app/_layout.tsx) | Root layout: AuthProvider wrap, auth state gates, Stack nav with modal |
+| [app/(tabs)/_layout.tsx](app/(tabs)/_layout.tsx) | Bottom tab nav (Dashboard, Transactions, Settings) |
+| [context/AuthContext.tsx](context/AuthContext.tsx) | Authentication state (pin setup/login/logout) |
+| [hooks/storage/useStorage.ts](hooks/storage/useStorage.ts) | AsyncStorage hooks (transactions, categories, PIN) |
+| [lib/types.ts](lib/types.ts) | TypeScript interfaces (Transaction, Category, MonthlyStats) |
+| [lib/crypto.ts](lib/crypto.ts) | PIN hashing/verification utilities |
+| [constants/strings.ts](constants/strings.ts) | All UI text (Bahasa Indonesia) |
+| [constants/colors.ts](constants/colors.ts) | Artha color palette (custom, not standard theme) |
+| [components/pin-entry-screen.tsx](components/pin-entry-screen.tsx) | Reusable PIN setup/login UI component |
+
+---
+
+## Common Tasks & Patterns
+
+### Adding a New Transaction Field
+
+1. Update `Transaction` interface in [lib/types.ts](lib/types.ts)
+2. Update AsyncStorage serialization in [hooks/storage/useStorage.ts](hooks/storage/useStorage.ts) if needed
+3. Add string label to [constants/strings.ts](constants/strings.ts)
+4. Update form in transaction add/edit screen
+
+### Adding a New Setting
+
+1. Add storage hook in [hooks/storage/useStorage.ts](hooks/storage/useStorage.ts)
+2. Add UI to [app/(tabs)/settings.tsx](app/(tabs)/settings.tsx)
+3. Add related strings to [constants/strings.ts](constants/strings.ts)
+
+### Debugging Storage Issues
+
+- `useStorage` hooks use `useFocusEffect` to refresh data when screen comes into focus
+- If data not updating, check that `useFocusEffect` dependency array is correct
+- AsyncStorage keys are prefixed `"artha_"` — search for them in logs/storage

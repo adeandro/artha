@@ -7,12 +7,20 @@ import { ThemedText } from "@/components/themed-text";
 import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
 import { useAuth } from "@/context/AuthContext";
-import { useCategories } from "@/hooks/storage/useStorage";
+import { useCategories, useTransactions } from "@/hooks/storage/useStorage";
+import { exportTransactionsToExcel } from "@/lib/excel-export";
+import {
+  importTransactionsFromExcel,
+  validateImportedData,
+} from "@/lib/excel-import";
 import { Category, TransactionType } from "@/lib/types";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -22,8 +30,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export const SettingsScreen = () => {
-  const { categories, addCategory, updateCategory, deleteCategory } =
-    useCategories();
+  const { categories, addCategory, deleteCategory } = useCategories();
+  const { transactions, addTransaction } = useTransactions();
   const { logout } = useAuth();
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -31,6 +39,8 @@ export const SettingsScreen = () => {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryType, setNewCategoryType] =
     useState<TransactionType>("expense");
+  const [isImporting, setIsImporting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) {
@@ -48,7 +58,7 @@ export const SettingsScreen = () => {
       setNewCategoryName("");
       setShowAddModal(false);
       Alert.alert("Success", Strings.categoryAdded);
-    } catch (e) {
+    } catch {
       Alert.alert("Error", Strings.errorOccurred);
     }
   };
@@ -63,7 +73,7 @@ export const SettingsScreen = () => {
           try {
             await deleteCategory(id);
             Alert.alert("Success", Strings.categoryDeleted);
-          } catch (e) {
+          } catch {
             Alert.alert("Error", Strings.errorOccurred);
           }
         },
@@ -80,6 +90,89 @@ export const SettingsScreen = () => {
         onPress: () => logout(),
       },
     ]);
+  };
+
+  // Handler untuk export transaksi ke Excel
+  const handleExportTransactions = async () => {
+    if (transactions.length === 0) {
+      Alert.alert("Info", Strings.noDataToExport);
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const categoryMap: Record<string, string> = {};
+      categories.forEach((cat) => {
+        categoryMap[cat.id] = cat.name;
+      });
+
+      await exportTransactionsToExcel(transactions, categoryMap);
+      Alert.alert("Sukses", Strings.exportSuccess);
+    } catch (error) {
+      Alert.alert("Error", Strings.exportFailed);
+      console.error("Export failed:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Handler untuk import transaksi dari Excel
+  const handleImportTransactions = async () => {
+    setIsImporting(true);
+    try {
+      // Step 1: Import data dari Excel
+      const result = await importTransactionsFromExcel();
+
+      // Step 2: Check jika berhasil dan ada data
+      if (!result.success || result.successCount === 0) {
+        const errorMsg =
+          result.errors.length > 0 ? result.errors[0] : "Gagal mengimport data";
+        Alert.alert("Error", errorMsg);
+        return;
+      }
+
+      // Step 3: Validate imported data
+      const validation = validateImportedData(result.data);
+      if (!validation.valid) {
+        Alert.alert("Validation Error", validation.errors.join("\n"));
+        return;
+      }
+
+      // Step 4: Ask user untuk confirm sebelum import
+      Alert.alert(
+        "Konfirmasi Import",
+        `Akan mengimport ${result.successCount} transaksi. ${result.failedCount > 0 ? `${result.failedCount} transaksi gagal.` : ""}`,
+        [
+          { text: Strings.cancel, style: "cancel" },
+          {
+            text: "Import",
+            style: "default",
+            onPress: async () => {
+              try {
+                // Step 5: Save transaksi ke AsyncStorage
+                for (const tx of result.data) {
+                  await addTransaction(tx);
+                }
+
+                // Success message
+                Alert.alert(
+                  "Sukses",
+                  `Berhasil mengimport ${result.successCount} transaksi`,
+                );
+              } catch (saveError) {
+                Alert.alert("Error", "Gagal menyimpan transaksi ke database");
+                console.error("Save failed:", saveError);
+              }
+            },
+          },
+        ],
+      );
+    } catch (error) {
+      Alert.alert("Error", Strings.importFailed);
+      console.error("Import failed:", error);
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   return (
@@ -157,6 +250,57 @@ export const SettingsScreen = () => {
           </View>
         </View>
 
+        {/* Data & Backup Section */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            {Strings.dataBackup}
+          </ThemedText>
+
+          {/* Export Button */}
+          <TouchableOpacity
+            style={[styles.button, isExporting && styles.buttonDisabled]}
+            onPress={handleExportTransactions}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <View style={styles.buttonContent}>
+                <ActivityIndicator size="small" color={ArthaColors.white} />
+                <ThemedText style={styles.buttonText}>
+                  {Strings.exportingData}
+                </ThemedText>
+              </View>
+            ) : (
+              <ThemedText style={styles.buttonText}>
+                {Strings.exportExcel}
+              </ThemedText>
+            )}
+          </TouchableOpacity>
+
+          {/* Import Button */}
+          <TouchableOpacity
+            style={[
+              styles.button,
+              styles.importButton,
+              isImporting && styles.buttonDisabled,
+            ]}
+            onPress={handleImportTransactions}
+            disabled={isImporting}
+          >
+            {isImporting ? (
+              <View style={styles.buttonContent}>
+                <ActivityIndicator size="small" color={ArthaColors.white} />
+                <ThemedText style={styles.buttonText}>
+                  {Strings.importingData}
+                </ThemedText>
+              </View>
+            ) : (
+              <ThemedText style={styles.buttonText}>
+                {Strings.importExcel}
+              </ThemedText>
+            )}
+          </TouchableOpacity>
+        </View>
+
         {/* Logout Section */}
         <View style={styles.section}>
           <TouchableOpacity
@@ -176,7 +320,7 @@ export const SettingsScreen = () => {
           </ThemedText>
           <View style={styles.aboutContent}>
             <ThemedText style={styles.aboutLabel}>{Strings.appName}</ThemedText>
-            <ThemedText style={styles.aboutText}>v1.0.0</ThemedText>
+            <ThemedText style={styles.aboutText}>v1.2.0</ThemedText>
             <ThemedText style={[styles.aboutLabel, { marginTop: 12 }]}>
               Author
             </ThemedText>
@@ -187,85 +331,99 @@ export const SettingsScreen = () => {
 
       {/* Add Category Modal */}
       <Modal visible={showAddModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <ThemedText type="subtitle" style={styles.modalTitle}>
-              {Strings.addCategory}
-            </ThemedText>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardAvoidingView}
+        >
+          <View style={styles.modalOverlay}>
+            <ScrollView
+              style={styles.modalScrollView}
+              contentContainerStyle={styles.modalScrollContent}
+              scrollEnabled={true}
+            >
+              <View style={styles.modalContent}>
+                <ThemedText type="subtitle" style={styles.modalTitle}>
+                  {Strings.addCategory}
+                </ThemedText>
 
-            <View style={styles.modalSection}>
-              <ThemedText style={styles.label}>
-                {Strings.categoryName}
-              </ThemedText>
-              <TextInput
-                style={styles.input}
-                placeholder={Strings.categoryName}
-                value={newCategoryName}
-                onChangeText={setNewCategoryName}
-                placeholderTextColor={ArthaColors.gray300}
-              />
-            </View>
+                <View style={styles.modalSection}>
+                  <ThemedText style={styles.label}>
+                    {Strings.categoryName}
+                  </ThemedText>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={Strings.categoryName}
+                    value={newCategoryName}
+                    onChangeText={setNewCategoryName}
+                    placeholderTextColor={ArthaColors.gray300}
+                  />
+                </View>
 
-            <View style={styles.modalSection}>
-              <ThemedText style={styles.label}>{Strings.type}</ThemedText>
-              <View style={styles.typeToggle}>
-                <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    newCategoryType === "income" && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setNewCategoryType("income")}
-                >
-                  <ThemedText
-                    style={[
-                      styles.typeButtonText,
-                      newCategoryType === "income" &&
-                        styles.typeButtonTextActive,
-                    ]}
+                <View style={styles.modalSection}>
+                  <ThemedText style={styles.label}>{Strings.type}</ThemedText>
+                  <View style={styles.typeToggle}>
+                    <TouchableOpacity
+                      style={[
+                        styles.typeButton,
+                        newCategoryType === "income" && styles.typeButtonActive,
+                      ]}
+                      onPress={() => setNewCategoryType("income")}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.typeButtonText,
+                          newCategoryType === "income" &&
+                            styles.typeButtonTextActive,
+                        ]}
+                      >
+                        {Strings.income}
+                      </ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.typeButton,
+                        newCategoryType === "expense" &&
+                          styles.typeButtonActive,
+                      ]}
+                      onPress={() => setNewCategoryType("expense")}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.typeButtonText,
+                          newCategoryType === "expense" &&
+                            styles.typeButtonTextActive,
+                        ]}
+                      >
+                        {Strings.expense}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => {
+                      setShowAddModal(false);
+                    }}
                   >
-                    {Strings.income}
-                  </ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.typeButton,
-                    newCategoryType === "expense" && styles.typeButtonActive,
-                  ]}
-                  onPress={() => setNewCategoryType("expense")}
-                >
-                  <ThemedText
-                    style={[
-                      styles.typeButtonText,
-                      newCategoryType === "expense" &&
-                        styles.typeButtonTextActive,
-                    ]}
+                    <ThemedText style={styles.cancelButtonText}>
+                      {Strings.cancel}
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.saveButton]}
+                    onPress={handleAddCategory}
                   >
-                    {Strings.expense}
-                  </ThemedText>
-                </TouchableOpacity>
+                    <ThemedText style={styles.saveButtonText}>
+                      {Strings.add}
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowAddModal(false)}
-              >
-                <ThemedText style={styles.cancelButtonText}>
-                  {Strings.cancel}
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleAddCategory}
-              >
-                <ThemedText style={styles.saveButtonText}>
-                  {Strings.add}
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Change PIN Modal */}
@@ -467,11 +625,25 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: ArthaColors.primaryAccent,
     alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
   buttonText: {
     fontSize: 14,
     fontWeight: "600",
     color: ArthaColors.white,
+  },
+  importButton: {
+    backgroundColor: ArthaColors.primaryDark,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   addButton: {
     width: 40,
@@ -543,7 +715,7 @@ const styles = StyleSheet.create({
   },
   aboutText: {
     fontSize: 14,
-    color: ArthaColors.text,
+    color: ArthaColors.gray700,
     marginTop: 4,
   },
   modalOverlay: {
@@ -681,6 +853,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: ArthaColors.white,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "flex-end",
   },
 });
 

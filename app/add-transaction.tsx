@@ -14,6 +14,8 @@ import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -75,127 +77,134 @@ export const AddTransactionScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.flex1}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>
-            {Strings.addTransaction}
-          </ThemedText>
-        </View>
-
-        {/* Type Selection */}
-        <View style={styles.section}>
-          <ThemedText style={styles.label}>{Strings.type}</ThemedText>
-          <View style={styles.typeToggle}>
-            <TouchableOpacity
-              style={[
-                styles.typeButton,
-                transactionType === "income" && styles.typeButtonActive,
-              ]}
-              onPress={() => handleTypeToggle("income")}
-            >
-              <ThemedText
-                style={[
-                  styles.typeButtonText,
-                  transactionType === "income" && styles.typeButtonTextActive,
-                ]}
-              >
-                {Strings.income}
-              </ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.typeButton,
-                transactionType === "expense" && styles.typeButtonActive,
-              ]}
-              onPress={() => handleTypeToggle("expense")}
-            >
-              <ThemedText
-                style={[
-                  styles.typeButtonText,
-                  transactionType === "expense" && styles.typeButtonTextActive,
-                ]}
-              >
-                {Strings.expense}
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Amount Input */}
-        <View style={styles.section}>
-          <ThemedText style={styles.label}>{Strings.amount}</ThemedText>
-          <View style={styles.amountInputWrapper}>
-            <ThemedText style={styles.currencyPrefix}>
-              {Strings.currencyPrefix}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <ThemedText type="title" style={styles.title}>
+              {Strings.addTransaction}
             </ThemedText>
-            <TextInput
-              style={styles.amountInput}
-              placeholder="0"
-              keyboardType="numeric"
-              value={amount}
-              onChangeText={setAmount}
-              placeholderTextColor={ArthaColors.gray300}
-            />
           </View>
-          {amount && (
-            <ThemedText style={styles.amountPreview}>
-              {formatCurrency(parseCurrency(amount))}
-            </ThemedText>
-          )}
-        </View>
 
-        {/* Category Selection */}
-        <View style={styles.section}>
-          <ThemedText style={styles.label}>{Strings.category}</ThemedText>
-          <View style={styles.categoryGrid}>
-            {typeCategories.map((cat) => (
+          {/* Type Selection */}
+          <View style={styles.section}>
+            <ThemedText style={styles.label}>{Strings.type}</ThemedText>
+            <View style={styles.typeToggle}>
               <TouchableOpacity
-                key={cat.id}
                 style={[
-                  styles.categoryButton,
-                  category === cat.id && styles.categoryButtonSelected,
+                  styles.typeButton,
+                  transactionType === "income" && styles.typeButtonActive,
                 ]}
-                onPress={() => setCategory(cat.id)}
+                onPress={() => handleTypeToggle("income")}
               >
                 <ThemedText
                   style={[
-                    styles.categoryButtonText,
-                    category === cat.id && styles.categoryButtonTextSelected,
+                    styles.typeButtonText,
+                    transactionType === "income" && styles.typeButtonTextActive,
                   ]}
                 >
-                  {cat.name}
+                  {Strings.income}
                 </ThemedText>
               </TouchableOpacity>
-            ))}
+              <TouchableOpacity
+                style={[
+                  styles.typeButton,
+                  transactionType === "expense" && styles.typeButtonActive,
+                ]}
+                onPress={() => handleTypeToggle("expense")}
+              >
+                <ThemedText
+                  style={[
+                    styles.typeButtonText,
+                    transactionType === "expense" &&
+                      styles.typeButtonTextActive,
+                  ]}
+                >
+                  {Strings.expense}
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        {/* Date Input */}
-        <View style={styles.section}>
-          <ThemedText style={styles.label}>{Strings.date}</ThemedText>
-          <View style={styles.dateInput}>
-            <ThemedText style={styles.dateValue}>{date}</ThemedText>
+          {/* Amount Input */}
+          <View style={styles.section}>
+            <ThemedText style={styles.label}>{Strings.amount}</ThemedText>
+            <View style={styles.amountInputWrapper}>
+              <ThemedText style={styles.currencyPrefix}>
+                {Strings.currencyPrefix}
+              </ThemedText>
+              <TextInput
+                style={styles.amountInput}
+                placeholder="0"
+                keyboardType="numeric"
+                value={amount}
+                onChangeText={setAmount}
+                placeholderTextColor={ArthaColors.gray300}
+              />
+            </View>
+            {amount && (
+              <ThemedText style={styles.amountPreview}>
+                {formatCurrency(parseCurrency(amount))}
+              </ThemedText>
+            )}
           </View>
-        </View>
 
-        {/* Notes */}
-        <View style={styles.section}>
-          <ThemedText style={styles.label}>{Strings.notes}</ThemedText>
-          <TextInput
-            style={styles.notesInput}
-            placeholder={Strings.notes}
-            multiline
-            numberOfLines={3}
-            value={notes}
-            onChangeText={setNotes}
-            placeholderTextColor={ArthaColors.gray300}
-          />
-        </View>
-      </ScrollView>
+          {/* Category Selection */}
+          <View style={styles.section}>
+            <ThemedText style={styles.label}>{Strings.category}</ThemedText>
+            <View style={styles.categoryGrid}>
+              {typeCategories.map((cat) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[
+                    styles.categoryButton,
+                    category === cat.id && styles.categoryButtonSelected,
+                  ]}
+                  onPress={() => setCategory(cat.id)}
+                >
+                  <ThemedText
+                    style={[
+                      styles.categoryButtonText,
+                      category === cat.id && styles.categoryButtonTextSelected,
+                    ]}
+                  >
+                    {cat.name}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Date Input */}
+          <View style={styles.section}>
+            <ThemedText style={styles.label}>{Strings.date}</ThemedText>
+            <View style={styles.dateInput}>
+              <ThemedText style={styles.dateValue}>{date}</ThemedText>
+            </View>
+          </View>
+
+          {/* Notes */}
+          <View style={styles.section}>
+            <ThemedText style={styles.label}>{Strings.notes}</ThemedText>
+            <TextInput
+              style={styles.notesTextarea}
+              placeholder={Strings.notes}
+              multiline
+              numberOfLines={5}
+              value={notes}
+              onChangeText={setNotes}
+              placeholderTextColor={ArthaColors.gray300}
+              textAlignVertical="top"
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Action Buttons */}
       <View style={styles.actions}>
@@ -222,6 +231,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: ArthaColors.gray50,
+  },
+  flex1: {
+    flex: 1,
   },
   scroll: {
     flex: 1,
@@ -350,6 +362,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: ArthaColors.primaryDark,
     textAlignVertical: "top",
+  },
+  notesTextarea: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: ArthaColors.white,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: ArthaColors.gray200,
+    fontSize: 14,
+    color: ArthaColors.primaryDark,
+    textAlignVertical: "top",
+    minHeight: 120,
   },
   actions: {
     position: "absolute",

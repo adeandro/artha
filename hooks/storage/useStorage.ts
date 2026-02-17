@@ -24,9 +24,9 @@ export const useTransactions = () => {
     try {
       const stored = await AsyncStorage.getItem(KEYS.TRANSACTIONS);
       setTransactions(stored ? JSON.parse(stored) : []);
+      setLoading(false);
     } catch (e) {
       console.error("Failed to load transactions", e);
-    } finally {
       setLoading(false);
     }
   }, []);

@@ -12,8 +12,10 @@ import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import "react-native-reanimated";
 
+// Unmatched route guard
 export const unstable_settings = {
   anchor: "(tabs)",
+  initialRouteName: "index",
 };
 
 function RootLayoutInner() {
@@ -39,9 +41,7 @@ function RootLayoutInner() {
   // If PIN is not set up, show PIN setup screen
   if (!isPinSetup) {
     return (
-      <ThemeProvider
-        value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-      >
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <PinEntryScreen
           mode="setup"
           onSuccess={() => {
@@ -56,9 +56,7 @@ function RootLayoutInner() {
   // If PIN is set up but not authenticated, show PIN login screen
   if (!isAuthenticated) {
     return (
-      <ThemeProvider
-        value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-      >
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <PinEntryScreen
           mode="login"
           onSuccess={() => {
@@ -71,15 +69,24 @@ function RootLayoutInner() {
   }
 
   // If authenticated, show main app with tabs
+  // Use Stack with explicit screen definitions for production compatibility
   return (
-    <ThemeProvider
-      value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-    >
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen
+          name="(tabs)"
+          options={{
+            headerShown: false,
+            animationEnabled: false,
+          }}
+        />
         <Stack.Screen
           name="add-transaction"
-          options={{ presentation: "modal", title: "Tambah Transaksi" }}
+          options={{
+            presentation: "modal",
+            title: "Tambah Transaksi",
+            animationEnabled: true,
+          }}
         />
       </Stack>
       <StatusBar style="auto" />

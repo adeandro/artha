@@ -22,6 +22,7 @@ export default function TabLayout() {
           borderTopColor: ArthaColors.gray200,
         },
       }}
+      initialRouteName="dashboard"
     >
       <Tabs.Screen
         name="dashboard"

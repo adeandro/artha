@@ -8,6 +8,7 @@ import { ThemedView } from "@/components/themed-view";
 import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
 import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -29,6 +30,7 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   const { login, setPin: savePin } = useAuth();
+  const router = useRouter();
 
   const handleDigitPress = (digit: string) => {
     if (step === "first" && pin.length < 6) {
@@ -53,8 +55,10 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
       if (mode === "login") {
         const success = await login(pin);
         if (success) {
-          // Auth state will update, root layout will re-render and show dashboard
           onSuccess();
+          // Redirect to dashboard after successful login
+          // Use absolute path for production build compatibility
+          router.replace("/(tabs)/dashboard");
         } else {
           Alert.alert(Strings.pinIncorrect, Strings.pinIncorrect);
           setPin("");
@@ -81,8 +85,10 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
           const success = await savePin(pin);
           if (success) {
             Alert.alert("Success", Strings.pinSetSuccessfully);
-            // Auth state will update, root layout will re-render and show dashboard
             onSuccess();
+            // Redirect to dashboard after successful PIN setup
+            // Use absolute path for production build compatibility
+            router.replace("/(tabs)/dashboard");
           }
         }
       }
