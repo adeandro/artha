@@ -55,9 +55,13 @@ function RootLayoutInner() {
     if (__DEV__) console.log("[AUTH-LAYOUT] Showing PIN setup screen");
     return (
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <PinEntryScreen key="pin-setup" mode="setup" onSuccess={() => {
-          if (__DEV__) console.log("[AUTH-LAYOUT] PIN setup successful");
-        }} />
+        <PinEntryScreen
+          key="pin-setup"
+          mode="setup"
+          onSuccess={() => {
+            if (__DEV__) console.log("[AUTH-LAYOUT] PIN setup successful");
+          }}
+        />
         <StatusBar style="light" />
       </ThemeProvider>
     );
@@ -68,12 +72,15 @@ function RootLayoutInner() {
     if (__DEV__) console.log("[AUTH-LAYOUT] Showing PIN login screen");
     return (
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <PinEntryScreen 
-          key="pin-login" 
-          mode="login" 
+        <PinEntryScreen
+          key="pin-login"
+          mode="login"
           onSuccess={() => {
-            if (__DEV__) console.log("[AUTH-LAYOUT] PIN login successful - should show tabs");
-          }} 
+            if (__DEV__)
+              console.log(
+                "[AUTH-LAYOUT] PIN login successful - should show tabs",
+              );
+          }}
         />
         <StatusBar style="light" />
       </ThemeProvider>

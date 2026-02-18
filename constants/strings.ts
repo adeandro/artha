@@ -112,4 +112,18 @@ export const Strings = {
   october: "Oktober",
   november: "November",
   december: "Desember",
+
+  // Budget
+  budgetManagement: "Manajemen Anggaran",
+  setBudget: "Atur Anggaran",
+  budgetLimit: "Limit Anggaran Bulanan",
+  editBudget: "Edit Anggaran",
+  deleteBudget: "Hapus Anggaran",
+  budgetAdded: "Anggaran berhasil ditambahkan",
+  budgetUpdated: "Anggaran berhasil diperbarui",
+  budgetDeleted: "Anggaran berhasil dihapus",
+  noBudgetSet: "Belum ada anggaran untuk kategori ini",
+  remainingBudget: "Sisa Anggaran",
+  overBudget: "Melebihi Anggaran",
+  daysUntilReset: "hari sampai reset",
 };

@@ -53,3 +53,10 @@ export const getMonthYear = (year: number, month: number): string => {
   const date = new Date(year, month - 1);
   return date.toLocaleDateString("id-ID", { year: "numeric", month: "long" });
 };
+
+export const getDaysRemainingInMonth = (): number => {
+  const now = new Date();
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysRemaining = lastDay - now.getDate();
+  return Math.max(0, daysRemaining);
+};

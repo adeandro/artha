@@ -51,7 +51,10 @@ const DashboardScreenComponent = () => {
       .reduce((sum, t) => sum + t.amount, 0);
 
     // Get top 3 expense categories
-    const expenseCategoryTotals: Record<string, { name: string; amount: number }> = {};
+    const expenseCategoryTotals: Record<
+      string,
+      { name: string; amount: number }
+    > = {};
     monthTransactions
       .filter((t) => t.type === "expense")
       .forEach((t) => {
@@ -68,7 +71,10 @@ const DashboardScreenComponent = () => {
       .slice(0, 3);
 
     // Get income categories
-    const incomeCategoryTotals: Record<string, { name: string; amount: number }> = {};
+    const incomeCategoryTotals: Record<
+      string,
+      { name: string; amount: number }
+    > = {};
     monthTransactions
       .filter((t) => t.type === "income")
       .forEach((t) => {
@@ -80,8 +86,9 @@ const DashboardScreenComponent = () => {
         incomeCategoryTotals[t.category].amount += t.amount;
       });
 
-    const topIncomeCategories = Object.values(incomeCategoryTotals)
-      .sort((a, b) => b.amount - a.amount);
+    const topIncomeCategories = Object.values(incomeCategoryTotals).sort(
+      (a, b) => b.amount - a.amount,
+    );
 
     // Get 5 most recent transactions
     const recentTransactions = transactions
@@ -106,13 +113,11 @@ const DashboardScreenComponent = () => {
       (sum, cat) => sum + cat.amount,
       0,
     );
-    return stats.topExpenseCategories
-      .slice(0, 3)
-      .map((cat) => ({
-        name: cat.name,
-        amount: cat.amount,
-        percentage: totalExpense > 0 ? (cat.amount / totalExpense) * 100 : 0,
-      }));
+    return stats.topExpenseCategories.slice(0, 3).map((cat) => ({
+      name: cat.name,
+      amount: cat.amount,
+      percentage: totalExpense > 0 ? (cat.amount / totalExpense) * 100 : 0,
+    }));
   }, [stats.topExpenseCategories]);
 
   // Prepare data for Pie Chart - Income
@@ -131,21 +136,53 @@ const DashboardScreenComponent = () => {
   // Prepare data for Budget Progress Bars
   const currentMonthBudgets = useMemo(() => {
     return budgets
-      .filter((b) => b.year === year && b.month === month)
+      .filter((b) => {
+        // Check if budget is for current month (automatic) or custom period
+        if (b.isCustomPeriod && b.startDate && b.endDate) {
+          // Custom period budget: check if current date is within range
+          const today = new Date().toISOString().split("T")[0];
+          return today >= b.startDate && today <= b.endDate;
+        } else {
+          // Automatic monthly budget: check year and month
+          return b.year === year && b.month === month;
+        }
+      })
       .map((budget) => {
         const categoryName =
           categories.find((c) => c.id === budget.categoryId)?.name ||
           budget.categoryId;
-        const spent = transactions
-          .filter(
-            (t) =>
-              t.category === budget.categoryId &&
-              t.type === "expense" &&
-              t.date.startsWith(`${year}-${String(month).padStart(2, "0")}`),
-          )
-          .reduce((sum, t) => sum + t.amount, 0);
 
-        return { categoryName, limit: budget.limit, spent };
+        let spent = 0;
+        if (budget.isCustomPeriod && budget.startDate && budget.endDate) {
+          // Custom period: sum transactions within the date range
+          spent = transactions
+            .filter(
+              (t) =>
+                t.category === budget.categoryId &&
+                t.type === "expense" &&
+                t.date >= budget.startDate &&
+                t.date <= budget.endDate,
+            )
+            .reduce((sum, t) => sum + t.amount, 0);
+        } else {
+          // Monthly budget: sum transactions for current month
+          spent = transactions
+            .filter(
+              (t) =>
+                t.category === budget.categoryId &&
+                t.type === "expense" &&
+                t.date.startsWith(`${year}-${String(month).padStart(2, "0")}`),
+            )
+            .reduce((sum, t) => sum + t.amount, 0);
+        }
+
+        return {
+          categoryName,
+          limit: budget.limit,
+          spent,
+          isCustomPeriod: budget.isCustomPeriod,
+          endDate: budget.endDate,
+        };
       });
   }, [budgets, year, month, categories, transactions]);
 
@@ -268,7 +305,9 @@ const DashboardScreenComponent = () => {
           <View style={styles.chartSection}>
             <TouchableOpacity
               style={styles.chartHeader}
-              onPress={() => setIsExpenseChartCollapsed(!isExpenseChartCollapsed)}
+              onPress={() =>
+                setIsExpenseChartCollapsed(!isExpenseChartCollapsed)
+              }
             >
               <ThemedText type="subtitle" style={styles.chartTitle}>
                 {Strings.expenseBreakdown}

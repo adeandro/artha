@@ -40,4 +40,8 @@ export interface Budget {
   year: number;
   month: number; // 1-12
   createdAt: string;
+  // Custom period support
+  isCustomPeriod?: boolean; // If true, use startDate and endDate instead of year/month
+  startDate?: string; // ISO date format (YYYY-MM-DD)
+  endDate?: string; // ISO date format (YYYY-MM-DD)
 }

@@ -42,7 +42,7 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
   // Handle auto-submit login with proper async safety
   const handleAutoLoginSubmit = useCallback(async () => {
     if (__DEV__) console.log("[PIN] Starting validation...");
-    
+
     // Extra safety check - don't proceed if not mounted
     if (!isMountedRef.current) {
       if (__DEV__) console.log("[PIN] Component unmounted, aborting login");
@@ -56,7 +56,10 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
 
       // Check if still mounted after async operation
       if (!isMountedRef.current) {
-        if (__DEV__) console.log("[PIN] Component unmounted after login, skipping state update");
+        if (__DEV__)
+          console.log(
+            "[PIN] Component unmounted after login, skipping state update",
+          );
         return;
       }
 
@@ -65,7 +68,7 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
         setPin("");
         // Give state time to settle before calling success
         await new Promise((resolve) => setTimeout(resolve, 100));
-        
+
         // Double check mounted before callback
         if (isMountedRef.current) {
           onSuccess();
@@ -81,7 +84,10 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
     } catch (error) {
       console.error("[PIN] Error during login:", error);
       if (isMountedRef.current) {
-        Alert.alert("Error", "An error occurred during login. Please try again.");
+        Alert.alert(
+          "Error",
+          "An error occurred during login. Please try again.",
+        );
         setPin("");
         loginAttemptRef.current = false;
       }
@@ -161,16 +167,19 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
             }
             return;
           }
-          
+
           try {
             const success = await savePin(pin);
-            
+
             // Check if still mounted after async operation
             if (!isMountedRef.current) {
-              if (__DEV__) console.log("[PIN] Component unmounted after setPin, skipping callback");
+              if (__DEV__)
+                console.log(
+                  "[PIN] Component unmounted after setPin, skipping callback",
+                );
               return;
             }
-            
+
             if (success) {
               if (isMountedRef.current) {
                 Alert.alert("Success", Strings.pinSetSuccessfully);
@@ -178,7 +187,7 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
                 setConfirmPin("");
                 // Give state time to settle before calling success
                 await new Promise((resolve) => setTimeout(resolve, 100));
-                
+
                 if (isMountedRef.current) {
                   onSuccess();
                 }

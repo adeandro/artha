@@ -70,7 +70,7 @@ function getColorForCategory(categoryName: string): string {
   // Use hash of category name to pick a color consistently
   let hash = 0;
   for (let i = 0; i < categoryName.length; i++) {
-    hash = ((hash << 5) - hash) + categoryName.charCodeAt(i);
+    hash = (hash << 5) - hash + categoryName.charCodeAt(i);
     hash = hash & hash; // Convert to 32bit integer
   }
   const colorIndex = Math.abs(hash) % colorPalette.length;

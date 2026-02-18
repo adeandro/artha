@@ -75,7 +75,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           // Add small delay to ensure state is stable before navigation
           await new Promise((resolve) => setTimeout(resolve, 50));
           setIsAuthenticated(true);
-          if (__DEV__) console.log("[AuthContext] Login successful - state updated");
+          if (__DEV__)
+            console.log("[AuthContext] Login successful - state updated");
         } else {
           if (__DEV__) console.log("[AuthContext] Invalid PIN");
         }
@@ -95,13 +96,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const newHash = hashPin(newPin);
         await setPinHash(newHash);
         setPinHashState(newHash);
-        
+
         // Add small delay to ensure state is stable
         await new Promise((resolve) => setTimeout(resolve, 50));
-        
+
         setIsPinSetup(true);
         setIsAuthenticated(true);
-        if (__DEV__) console.log("[AuthContext] PIN set successfully - state updated");
+        if (__DEV__)
+          console.log("[AuthContext] PIN set successfully - state updated");
         return true;
       } catch (e) {
         console.error("[AuthContext] Failed to set PIN:", e);

@@ -3,6 +3,7 @@
  * Category management and PIN change
  */
 
+import { BudgetModal, BudgetModalData } from "@/components/modals/budget-modal";
 import { ThemedText } from "@/components/themed-text";
 import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
@@ -12,7 +13,7 @@ import {
   useCategories,
   useTransactions,
 } from "@/hooks/storage/useStorage";
-import { formatCurrency, parseCurrency } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import { getCurrentMonth } from "@/lib/date";
 import { exportTransactionsToExcel } from "@/lib/excel-export";
 import {
@@ -20,7 +21,6 @@ import {
   validateImportedData,
 } from "@/lib/excel-import";
 import { Budget, Category, TransactionType } from "@/lib/types";
-import { Picker } from "@react-native-picker/picker";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -51,7 +51,6 @@ export const SettingsScreen = () => {
   const [selectedCategoryForBudget, setSelectedCategoryForBudget] = useState<
     string | null
   >(null);
-  const [budgetLimit, setBudgetLimit] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -105,31 +104,27 @@ export const SettingsScreen = () => {
     ]);
   };
 
-  const handleAddBudget = async () => {
-    if (!selectedCategoryForBudget || !budgetLimit) {
-      Alert.alert("Error", "Pilih kategori dan masukkan limit budget");
+  const handleAddBudget = async (budgetData: BudgetModalData) => {
+    if (!selectedCategoryForBudget) {
+      Alert.alert("Error", "Pilih kategori");
       return;
     }
 
     try {
-      const limit = parseCurrency(budgetLimit);
-      if (limit <= 0) {
-        Alert.alert("Error", "Budget limit harus lebih dari 0");
-        return;
-      }
-
       const { year, month } = getCurrentMonth();
       const newBudget: Budget = {
         id: `budget_${Date.now()}`,
         categoryId: selectedCategoryForBudget,
-        limit,
+        limit: budgetData.limit,
         year,
         month,
         createdAt: new Date().toISOString(),
+        isCustomPeriod: budgetData.isCustomPeriod,
+        startDate: budgetData.startDate,
+        endDate: budgetData.endDate,
       };
 
       await addBudget(newBudget);
-      setBudgetLimit("");
       setSelectedCategoryForBudget(null);
       setShowAddBudgetModal(false);
       Alert.alert("Success", "Budget berhasil ditambahkan");
@@ -532,87 +527,18 @@ export const SettingsScreen = () => {
       </Modal>
 
       {/* Add Budget Modal */}
-      <Modal visible={showAddBudgetModal} transparent animationType="slide">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardAvoidingView}
-        >
-          <View style={styles.modalOverlay}>
-            <ScrollView
-              style={styles.modalScrollView}
-              contentContainerStyle={styles.modalScrollContent}
-              scrollEnabled={true}
-            >
-              <View style={styles.modalContent}>
-                <ThemedText type="subtitle" style={styles.modalTitle}>
-                  Tambah Budget
-                </ThemedText>
-
-                <View style={styles.modalSection}>
-                  <ThemedText style={styles.label}>Pilih Kategori</ThemedText>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={selectedCategoryForBudget}
-                      onValueChange={(value: string | null) =>
-                        setSelectedCategoryForBudget(value)
-                      }
-                      style={styles.picker}
-                    >
-                      <Picker.Item label="Pilih kategori..." value={null} />
-                      {categories
-                        .filter((c) => c.type === "expense")
-                        .map((cat) => (
-                          <Picker.Item
-                            key={cat.id}
-                            label={cat.name}
-                            value={cat.id}
-                          />
-                        ))}
-                    </Picker>
-                  </View>
-                </View>
-
-                <View style={styles.modalSection}>
-                  <ThemedText style={styles.label}>
-                    Limit Budget (IDR)
-                  </ThemedText>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Masukkan limit budget"
-                    value={budgetLimit}
-                    onChangeText={setBudgetLimit}
-                    keyboardType="decimal-pad"
-                    placeholderTextColor={ArthaColors.gray300}
-                  />
-                </View>
-
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={() => {
-                      setShowAddBudgetModal(false);
-                      setBudgetLimit("");
-                      setSelectedCategoryForBudget(null);
-                    }}
-                  >
-                    <ThemedText style={styles.cancelButtonText}>
-                      {Strings.cancel}
-                    </ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.saveButton]}
-                    onPress={handleAddBudget}
-                  >
-                    <ThemedText style={styles.saveButtonText}>
-                      {Strings.add}
-                    </ThemedText>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      <BudgetModal
+        visible={showAddBudgetModal}
+        categoryName={
+          categories.find((c) => c.id === selectedCategoryForBudget)?.name || ""
+        }
+        categoryId={selectedCategoryForBudget || ""}
+        onSave={handleAddBudget}
+        onCancel={() => {
+          setShowAddBudgetModal(false);
+          setSelectedCategoryForBudget(null);
+        }}
+      />
 
       {/* Change PIN Modal */}
       <Modal visible={showChangePinModal} transparent animationType="slide">
