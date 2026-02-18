@@ -26,7 +26,7 @@ function RootLayoutInner() {
   // Debug logging - only log state transitions in dev mode
   useEffect(() => {
     if (__DEV__) {
-      console.log("[AUTH] State changed:", {
+      console.log("[AUTH-LAYOUT] State changed:", {
         isLoading,
         isPinSetup,
         isAuthenticated,
@@ -52,9 +52,12 @@ function RootLayoutInner() {
 
   // If PIN is not set up, show PIN setup screen
   if (!isPinSetup) {
+    if (__DEV__) console.log("[AUTH-LAYOUT] Showing PIN setup screen");
     return (
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <PinEntryScreen key="pin-setup" mode="setup" onSuccess={() => {}} />
+        <PinEntryScreen key="pin-setup" mode="setup" onSuccess={() => {
+          if (__DEV__) console.log("[AUTH-LAYOUT] PIN setup successful");
+        }} />
         <StatusBar style="light" />
       </ThemeProvider>
     );
@@ -62,15 +65,23 @@ function RootLayoutInner() {
 
   // If PIN is set up but not authenticated, show PIN login screen
   if (!isAuthenticated) {
+    if (__DEV__) console.log("[AUTH-LAYOUT] Showing PIN login screen");
     return (
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <PinEntryScreen key="pin-login" mode="login" onSuccess={() => {}} />
+        <PinEntryScreen 
+          key="pin-login" 
+          mode="login" 
+          onSuccess={() => {
+            if (__DEV__) console.log("[AUTH-LAYOUT] PIN login successful - should show tabs");
+          }} 
+        />
         <StatusBar style="light" />
       </ThemeProvider>
     );
   }
 
   // If authenticated, show main app with tabs
+  if (__DEV__) console.log("[AUTH-LAYOUT] Authenticated - showing main app");
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>

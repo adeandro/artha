@@ -34,6 +34,8 @@ const DashboardScreenComponent = () => {
   const { year, month } = getCurrentMonth();
   const { start, end } = getMonthDateRange(year, month);
   const [isExporting, setIsExporting] = useState(false);
+  const [isIncomeChartCollapsed, setIsIncomeChartCollapsed] = useState(true);
+  const [isExpenseChartCollapsed, setIsExpenseChartCollapsed] = useState(true);
 
   const stats = useMemo(() => {
     const monthTransactions = transactions.filter(
@@ -49,21 +51,37 @@ const DashboardScreenComponent = () => {
       .reduce((sum, t) => sum + t.amount, 0);
 
     // Get top 3 expense categories
-    const categoryTotals: Record<string, { name: string; amount: number }> = {};
+    const expenseCategoryTotals: Record<string, { name: string; amount: number }> = {};
     monthTransactions
       .filter((t) => t.type === "expense")
       .forEach((t) => {
         const categoryName =
           categories.find((c) => c.id === t.category)?.name || t.category;
-        if (!categoryTotals[t.category]) {
-          categoryTotals[t.category] = { name: categoryName, amount: 0 };
+        if (!expenseCategoryTotals[t.category]) {
+          expenseCategoryTotals[t.category] = { name: categoryName, amount: 0 };
         }
-        categoryTotals[t.category].amount += t.amount;
+        expenseCategoryTotals[t.category].amount += t.amount;
       });
 
-    const topCategories = Object.values(categoryTotals)
+    const topExpenseCategories = Object.values(expenseCategoryTotals)
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 3);
+
+    // Get income categories
+    const incomeCategoryTotals: Record<string, { name: string; amount: number }> = {};
+    monthTransactions
+      .filter((t) => t.type === "income")
+      .forEach((t) => {
+        const categoryName =
+          categories.find((c) => c.id === t.category)?.name || t.category;
+        if (!incomeCategoryTotals[t.category]) {
+          incomeCategoryTotals[t.category] = { name: categoryName, amount: 0 };
+        }
+        incomeCategoryTotals[t.category].amount += t.amount;
+      });
+
+    const topIncomeCategories = Object.values(incomeCategoryTotals)
+      .sort((a, b) => b.amount - a.amount);
 
     // Get 5 most recent transactions
     const recentTransactions = transactions
@@ -74,25 +92,41 @@ const DashboardScreenComponent = () => {
       totalIncome,
       totalExpense,
       balance: totalIncome - totalExpense,
-      topCategories,
+      topExpenseCategories,
+      topIncomeCategories,
       recentTransactions,
     };
   }, [transactions, start, end, categories]);
 
   const { budgets } = useBudgets();
 
-  // Prepare data for Pie Chart
-  const categoryBreakdown = useMemo(() => {
-    const totalExpense = stats.topCategories.reduce(
+  // Prepare data for Pie Chart - Expense
+  const expenseCategoryBreakdown = useMemo(() => {
+    const totalExpense = stats.topExpenseCategories.reduce(
       (sum, cat) => sum + cat.amount,
       0,
     );
-    return stats.topCategories.map((cat) => ({
-      name: cat.name,
+    return stats.topExpenseCategories
+      .slice(0, 3)
+      .map((cat) => ({
+        name: cat.name,
+        amount: cat.amount,
+        percentage: totalExpense > 0 ? (cat.amount / totalExpense) * 100 : 0,
+      }));
+  }, [stats.topExpenseCategories]);
+
+  // Prepare data for Pie Chart - Income
+  const incomeCategoryBreakdown = useMemo(() => {
+    const totalIncome = stats.topIncomeCategories.reduce(
+      (sum, cat) => sum + cat.amount,
+      0,
+    );
+    return stats.topIncomeCategories.map((cat) => ({
+      name: cat.name === "Lainnya" ? "Lainnya (Pemasukan)" : cat.name,
       amount: cat.amount,
-      percentage: totalExpense > 0 ? (cat.amount / totalExpense) * 100 : 0,
+      percentage: totalIncome > 0 ? (cat.amount / totalIncome) * 100 : 0,
     }));
-  }, [stats.topCategories]);
+  }, [stats.topIncomeCategories]);
 
   // Prepare data for Budget Progress Bars
   const currentMonthBudgets = useMemo(() => {
@@ -205,12 +239,52 @@ const DashboardScreenComponent = () => {
           </ThemedText>
         </View>
 
-        {/* Category Pie Chart */}
-        {stats.topCategories.length > 0 && (
-          <CategoryPieChart
-            data={categoryBreakdown}
-            total={stats.totalExpense}
-          />
+        {/* Income Pie Chart */}
+        {stats.topIncomeCategories.length > 0 && (
+          <View style={styles.chartSection}>
+            <TouchableOpacity
+              style={styles.chartHeader}
+              onPress={() => setIsIncomeChartCollapsed(!isIncomeChartCollapsed)}
+            >
+              <ThemedText type="subtitle" style={styles.chartTitle}>
+                {Strings.incomeBreakdown}
+              </ThemedText>
+              <ThemedText style={styles.chartToggle}>
+                {isIncomeChartCollapsed ? "▶" : "▼"}
+              </ThemedText>
+            </TouchableOpacity>
+            {!isIncomeChartCollapsed && (
+              <CategoryPieChart
+                data={incomeCategoryBreakdown}
+                total={stats.totalIncome}
+                compact={true}
+              />
+            )}
+          </View>
+        )}
+
+        {/* Expense Pie Chart */}
+        {stats.topExpenseCategories.length > 0 && (
+          <View style={styles.chartSection}>
+            <TouchableOpacity
+              style={styles.chartHeader}
+              onPress={() => setIsExpenseChartCollapsed(!isExpenseChartCollapsed)}
+            >
+              <ThemedText type="subtitle" style={styles.chartTitle}>
+                {Strings.expenseBreakdown}
+              </ThemedText>
+              <ThemedText style={styles.chartToggle}>
+                {isExpenseChartCollapsed ? "▶" : "▼"}
+              </ThemedText>
+            </TouchableOpacity>
+            {!isExpenseChartCollapsed && (
+              <CategoryPieChart
+                data={expenseCategoryBreakdown}
+                total={stats.totalExpense}
+                compact={true}
+              />
+            )}
+          </View>
         )}
 
         {/* Budget Progress Bars */}
@@ -397,6 +471,40 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
+  },
+  chartSection: {
+    marginBottom: 16,
+    borderRadius: 12,
+    backgroundColor: ArthaColors.white,
+    overflow: "hidden",
+    shadowColor: ArthaColors.primaryDark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  chartHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: ArthaColors.primaryDark,
+    borderLeftWidth: 4,
+    borderLeftColor: ArthaColors.primaryAccent,
+  },
+  chartTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: ArthaColors.white,
+    flex: 1,
+    letterSpacing: 0.3,
+  },
+  chartToggle: {
+    fontSize: 13,
+    color: ArthaColors.primaryAccent,
+    fontWeight: "700",
+    marginLeft: 12,
   },
   sectionTitle: {
     fontSize: 16,

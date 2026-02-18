@@ -30,32 +30,65 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
 
   const { login, setPin: savePin } = useAuth();
   const loginAttemptRef = useRef(false);
+  const isMountedRef = useRef(true);
 
-  // Handle auto-submit login
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Handle auto-submit login with proper async safety
   const handleAutoLoginSubmit = useCallback(async () => {
     if (__DEV__) console.log("[PIN] Starting validation...");
+    
+    // Extra safety check - don't proceed if not mounted
+    if (!isMountedRef.current) {
+      if (__DEV__) console.log("[PIN] Component unmounted, aborting login");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const success = await login(pin);
 
+      // Check if still mounted after async operation
+      if (!isMountedRef.current) {
+        if (__DEV__) console.log("[PIN] Component unmounted after login, skipping state update");
+        return;
+      }
+
       if (success) {
-        if (__DEV__) console.log("[PIN] Login successful");
+        if (__DEV__) console.log("[PIN] Login successful - calling onSuccess");
         setPin("");
-        onSuccess();
+        // Give state time to settle before calling success
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        
+        // Double check mounted before callback
+        if (isMountedRef.current) {
+          onSuccess();
+        }
       } else {
         if (__DEV__) console.log("[PIN] Invalid PIN");
-        Alert.alert(Strings.pinIncorrect, Strings.pinIncorrect);
+        if (isMountedRef.current) {
+          Alert.alert(Strings.pinIncorrect, Strings.pinIncorrect);
+          setPin("");
+          loginAttemptRef.current = false;
+        }
+      }
+    } catch (error) {
+      console.error("[PIN] Error during login:", error);
+      if (isMountedRef.current) {
+        Alert.alert("Error", "An error occurred during login. Please try again.");
         setPin("");
         loginAttemptRef.current = false;
       }
-    } catch (error) {
-      console.error("[PIN] Error:", error);
-      Alert.alert("Error", String(error));
-      setPin("");
-      loginAttemptRef.current = false;
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [pin, login, onSuccess]);
 
@@ -89,6 +122,12 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
   };
 
   const handleSubmit = async () => {
+    // Safety check
+    if (!isMountedRef.current) {
+      if (__DEV__) console.log("[PIN] Component unmounted, aborting submit");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -98,33 +137,69 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
       } else if (mode === "setup" || mode === "change") {
         if (step === "first") {
           if (pin.length !== 6) {
-            Alert.alert("Error", Strings.pinMustBe6Digits);
+            if (isMountedRef.current) {
+              Alert.alert("Error", Strings.pinMustBe6Digits);
+            }
             return;
           }
-          setStep("confirm");
+          if (isMountedRef.current) {
+            setStep("confirm");
+          }
         } else {
           if (confirmPin.length !== 6) {
-            Alert.alert("Error", Strings.pinMustBe6Digits);
+            if (isMountedRef.current) {
+              Alert.alert("Error", Strings.pinMustBe6Digits);
+            }
             return;
           }
           if (pin !== confirmPin) {
-            Alert.alert("Error", Strings.pinNotMatch);
-            setPin("");
-            setConfirmPin("");
-            setStep("first");
+            if (isMountedRef.current) {
+              Alert.alert("Error", Strings.pinNotMatch);
+              setPin("");
+              setConfirmPin("");
+              setStep("first");
+            }
             return;
           }
-          const success = await savePin(pin);
-          if (success) {
-            Alert.alert("Success", Strings.pinSetSuccessfully);
-            setPin("");
-            setConfirmPin("");
-            onSuccess();
+          
+          try {
+            const success = await savePin(pin);
+            
+            // Check if still mounted after async operation
+            if (!isMountedRef.current) {
+              if (__DEV__) console.log("[PIN] Component unmounted after setPin, skipping callback");
+              return;
+            }
+            
+            if (success) {
+              if (isMountedRef.current) {
+                Alert.alert("Success", Strings.pinSetSuccessfully);
+                setPin("");
+                setConfirmPin("");
+                // Give state time to settle before calling success
+                await new Promise((resolve) => setTimeout(resolve, 100));
+                
+                if (isMountedRef.current) {
+                  onSuccess();
+                }
+              }
+            } else {
+              if (isMountedRef.current) {
+                Alert.alert("Error", "Failed to set PIN. Please try again.");
+              }
+            }
+          } catch (error) {
+            console.error("[PIN] Error setting PIN:", error);
+            if (isMountedRef.current) {
+              Alert.alert("Error", "An error occurred. Please try again.");
+            }
           }
         }
       }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 

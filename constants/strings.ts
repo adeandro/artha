@@ -32,6 +32,8 @@ export const Strings = {
   addTransaction: "Tambah Transaksi",
   surplus: "Surplus",
   deficit: "Defisit",
+  incomeBreakdown: "Rincian Pemasukan",
+  expenseBreakdown: "Rincian Pengeluaran",
 
   // Transactions
   transactionHistory: "Riwayat Transaksi",

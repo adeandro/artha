@@ -425,7 +425,7 @@ export const SettingsScreen = () => {
           </ThemedText>
           <View style={styles.aboutContent}>
             <ThemedText style={styles.aboutLabel}>{Strings.appName}</ThemedText>
-            <ThemedText style={styles.aboutText}>v1.2.1</ThemedText>
+            <ThemedText style={styles.aboutText}>v1.3.2</ThemedText>
             <ThemedText style={[styles.aboutLabel, { marginTop: 12 }]}>
               Author
             </ThemedText>

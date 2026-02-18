@@ -25,10 +25,17 @@ interface CategoryBreakdown {
 interface CategoryPieChartProps {
   data: CategoryBreakdown[];
   total: number;
+  compact?: boolean;
 }
 
 // Fixed color map - consistent colors per category
 const CATEGORY_COLORS: Record<string, string> = {
+  // Income categories
+  Gaji: "#22C55E",
+  Bonus: "#84CC16",
+  "Lainnya (Pemasukan)": "#10B981",
+
+  // Expense categories
   Makanan: "#FF6B6B",
   Transportasi: "#4ECDC4",
   Utilitas: "#45B7D1",
@@ -40,21 +47,43 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 function getColorForCategory(categoryName: string): string {
-  return CATEGORY_COLORS[categoryName] || "#95A5A6";
+  // Check if category exists in mapping
+  if (CATEGORY_COLORS[categoryName]) {
+    return CATEGORY_COLORS[categoryName];
+  }
+
+  // Fallback: generate consistent color based on category name
+  const colorPalette = [
+    "#FF6B6B",
+    "#4ECDC4",
+    "#45B7D1",
+    "#FF8C42",
+    "#26C485",
+    "#FFE66D",
+    "#DA70D6",
+    "#4D96FF",
+    "#22C55E",
+    "#84CC16",
+    "#10B981",
+  ];
+
+  // Use hash of category name to pick a color consistently
+  let hash = 0;
+  for (let i = 0; i < categoryName.length; i++) {
+    hash = ((hash << 5) - hash) + categoryName.charCodeAt(i);
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  const colorIndex = Math.abs(hash) % colorPalette.length;
+  return colorPalette[colorIndex];
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 0,
   },
   card: {
-    borderRadius: 8,
+    borderRadius: 0,
     backgroundColor: ArthaColors.white,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 5,
     overflow: "hidden",
   },
   headerGradient: {
@@ -76,9 +105,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   chartContainer: {
-    backgroundColor: "#FAFBFC",
-    paddingVertical: 20,
-    paddingHorizontal: 16,
+    backgroundColor: ArthaColors.white,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     alignItems: "center",
   },
   donutWrapper: {
@@ -108,9 +137,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   legendSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: ArthaColors.white,
     borderTopWidth: 1,
     borderTopColor: "#E8ECEF",
   },
@@ -174,9 +203,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     borderTopWidth: 1,
     borderTopColor: "#E8ECEF",
-    gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   statBox: {
     flex: 1,
@@ -213,6 +242,7 @@ const styles = StyleSheet.create({
 export const CategoryPieChart: React.FC<CategoryPieChartProps> = ({
   data,
   total,
+  compact = false,
 }) => {
   const screenWidth = Dimensions.get("window").width;
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -235,12 +265,14 @@ export const CategoryPieChart: React.FC<CategoryPieChartProps> = ({
     return (
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <View style={styles.card}>
-          <View style={styles.headerGradient}>
-            <ThemedText style={styles.title}>💰 Pengeluaran</ThemedText>
-            <ThemedText style={styles.subtitle}>
-              Analisis per kategori
-            </ThemedText>
-          </View>
+          {!compact && (
+            <View style={styles.headerGradient}>
+              <ThemedText style={styles.title}>💰 Pengeluaran</ThemedText>
+              <ThemedText style={styles.subtitle}>
+                Analisis per kategori
+              </ThemedText>
+            </View>
+          )}
           <View style={styles.emptyContainer}>
             <ThemedText style={styles.emptyText}>
               Tidak ada pengeluaran untuk ditampilkan
@@ -291,11 +323,15 @@ export const CategoryPieChart: React.FC<CategoryPieChartProps> = ({
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <View style={styles.card}>
-        {/* Header */}
-        <View style={styles.headerGradient}>
-          <ThemedText style={styles.title}>💰 Pengeluaran</ThemedText>
-          <ThemedText style={styles.subtitle}>Analisis per kategori</ThemedText>
-        </View>
+        {/* Header - Hidden in compact mode */}
+        {!compact && (
+          <View style={styles.headerGradient}>
+            <ThemedText style={styles.title}>💰 Pengeluaran</ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Analisis per kategori
+            </ThemedText>
+          </View>
+        )}
 
         {/* Donut Chart */}
         <View style={styles.chartContainer}>
