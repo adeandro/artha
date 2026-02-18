@@ -7,13 +7,20 @@ import { ThemedText } from "@/components/themed-text";
 import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
 import { useAuth } from "@/context/AuthContext";
-import { useCategories, useTransactions } from "@/hooks/storage/useStorage";
+import {
+  useBudgets,
+  useCategories,
+  useTransactions,
+} from "@/hooks/storage/useStorage";
+import { formatCurrency, parseCurrency } from "@/lib/currency";
+import { getCurrentMonth } from "@/lib/date";
 import { exportTransactionsToExcel } from "@/lib/excel-export";
 import {
   importTransactionsFromExcel,
   validateImportedData,
 } from "@/lib/excel-import";
-import { Category, TransactionType } from "@/lib/types";
+import { Budget, Category, TransactionType } from "@/lib/types";
+import { Picker } from "@react-native-picker/picker";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -32,13 +39,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export const SettingsScreen = () => {
   const { categories, addCategory, deleteCategory } = useCategories();
   const { transactions, addTransaction } = useTransactions();
+  const { budgets, addBudget, deleteBudget } = useBudgets();
   const { logout } = useAuth();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showChangePinModal, setShowChangePinModal] = useState(false);
+  const [showAddBudgetModal, setShowAddBudgetModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryType, setNewCategoryType] =
     useState<TransactionType>("expense");
+  const [selectedCategoryForBudget, setSelectedCategoryForBudget] = useState<
+    string | null
+  >(null);
+  const [budgetLimit, setBudgetLimit] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -90,6 +103,39 @@ export const SettingsScreen = () => {
         onPress: () => logout(),
       },
     ]);
+  };
+
+  const handleAddBudget = async () => {
+    if (!selectedCategoryForBudget || !budgetLimit) {
+      Alert.alert("Error", "Pilih kategori dan masukkan limit budget");
+      return;
+    }
+
+    try {
+      const limit = parseCurrency(budgetLimit);
+      if (limit <= 0) {
+        Alert.alert("Error", "Budget limit harus lebih dari 0");
+        return;
+      }
+
+      const { year, month } = getCurrentMonth();
+      const newBudget: Budget = {
+        id: `budget_${Date.now()}`,
+        categoryId: selectedCategoryForBudget,
+        limit,
+        year,
+        month,
+        createdAt: new Date().toISOString(),
+      };
+
+      await addBudget(newBudget);
+      setBudgetLimit("");
+      setSelectedCategoryForBudget(null);
+      setShowAddBudgetModal(false);
+      Alert.alert("Success", "Budget berhasil ditambahkan");
+    } catch {
+      Alert.alert("Error", "Gagal menambahkan budget");
+    }
   };
 
   // Handler untuk export transaksi ke Excel
@@ -250,6 +296,65 @@ export const SettingsScreen = () => {
           </View>
         </View>
 
+        {/* Budget Management Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Setting Budget
+            </ThemedText>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => setShowAddBudgetModal(true)}
+            >
+              <ThemedText style={styles.addButtonText}>+</ThemedText>
+            </TouchableOpacity>
+          </View>
+
+          {/* Current Budgets */}
+          {budgets
+            .filter(
+              (b) =>
+                b.year === getCurrentMonth().year &&
+                b.month === getCurrentMonth().month,
+            )
+            .map((budget) => {
+              const categoryName =
+                categories.find((c) => c.id === budget.categoryId)?.name ||
+                budget.categoryId;
+              return (
+                <View key={budget.id} style={styles.budgetItem}>
+                  <View style={styles.budgetInfo}>
+                    <ThemedText style={styles.budgetCategory}>
+                      {categoryName}
+                    </ThemedText>
+                    <ThemedText style={styles.budgetLimit}>
+                      {formatCurrency(budget.limit)}
+                    </ThemedText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => {
+                      Alert.alert(
+                        "Hapus Budget",
+                        "Yakin ingin menghapus budget ini?",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Hapus",
+                            style: "destructive",
+                            onPress: () => deleteBudget(budget.id),
+                          },
+                        ],
+                      );
+                    }}
+                  >
+                    <ThemedText style={styles.deleteButtonText}>✕</ThemedText>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+        </View>
+
         {/* Data & Backup Section */}
         <View style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
@@ -320,7 +425,7 @@ export const SettingsScreen = () => {
           </ThemedText>
           <View style={styles.aboutContent}>
             <ThemedText style={styles.aboutLabel}>{Strings.appName}</ThemedText>
-            <ThemedText style={styles.aboutText}>v1.2.0</ThemedText>
+            <ThemedText style={styles.aboutText}>v1.2.1</ThemedText>
             <ThemedText style={[styles.aboutLabel, { marginTop: 12 }]}>
               Author
             </ThemedText>
@@ -414,6 +519,89 @@ export const SettingsScreen = () => {
                   <TouchableOpacity
                     style={[styles.modalButton, styles.saveButton]}
                     onPress={handleAddCategory}
+                  >
+                    <ThemedText style={styles.saveButtonText}>
+                      {Strings.add}
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Add Budget Modal */}
+      <Modal visible={showAddBudgetModal} transparent animationType="slide">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardAvoidingView}
+        >
+          <View style={styles.modalOverlay}>
+            <ScrollView
+              style={styles.modalScrollView}
+              contentContainerStyle={styles.modalScrollContent}
+              scrollEnabled={true}
+            >
+              <View style={styles.modalContent}>
+                <ThemedText type="subtitle" style={styles.modalTitle}>
+                  Tambah Budget
+                </ThemedText>
+
+                <View style={styles.modalSection}>
+                  <ThemedText style={styles.label}>Pilih Kategori</ThemedText>
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={selectedCategoryForBudget}
+                      onValueChange={(value: string | null) =>
+                        setSelectedCategoryForBudget(value)
+                      }
+                      style={styles.picker}
+                    >
+                      <Picker.Item label="Pilih kategori..." value={null} />
+                      {categories
+                        .filter((c) => c.type === "expense")
+                        .map((cat) => (
+                          <Picker.Item
+                            key={cat.id}
+                            label={cat.name}
+                            value={cat.id}
+                          />
+                        ))}
+                    </Picker>
+                  </View>
+                </View>
+
+                <View style={styles.modalSection}>
+                  <ThemedText style={styles.label}>
+                    Limit Budget (IDR)
+                  </ThemedText>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Masukkan limit budget"
+                    value={budgetLimit}
+                    onChangeText={setBudgetLimit}
+                    keyboardType="decimal-pad"
+                    placeholderTextColor={ArthaColors.gray300}
+                  />
+                </View>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => {
+                      setShowAddBudgetModal(false);
+                      setBudgetLimit("");
+                      setSelectedCategoryForBudget(null);
+                    }}
+                  >
+                    <ThemedText style={styles.cancelButtonText}>
+                      {Strings.cancel}
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.saveButton]}
+                    onPress={handleAddBudget}
                   >
                     <ThemedText style={styles.saveButtonText}>
                       {Strings.add}
@@ -694,6 +882,42 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: ArthaColors.white,
   },
+  budgetItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    backgroundColor: ArthaColors.white,
+    borderRadius: 6,
+    borderLeftWidth: 4,
+    borderLeftColor: ArthaColors.primaryAccent,
+  },
+  budgetInfo: {
+    flex: 1,
+  },
+  budgetCategory: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: ArthaColors.primaryDark,
+    marginBottom: 2,
+  },
+  budgetLimit: {
+    fontSize: 12,
+    color: ArthaColors.gray600,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: ArthaColors.gray300,
+    borderRadius: 8,
+    backgroundColor: ArthaColors.white,
+    marginTop: 8,
+  },
+  picker: {
+    height: 50,
+    color: ArthaColors.primaryDark,
+  },
   logoutButton: {
     backgroundColor: ArthaColors.error,
   },
@@ -720,7 +944,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
     justifyContent: "flex-end",
   },
   modalContent: {

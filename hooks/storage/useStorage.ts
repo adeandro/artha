@@ -2,7 +2,7 @@
  * AsyncStorage hooks for Artha
  */
 
-import { Category, Transaction } from "@/lib/types";
+import { Budget, Category, Transaction } from "@/lib/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useState } from "react";
@@ -12,6 +12,7 @@ const KEYS = {
   CATEGORIES: "artha_categories",
   PIN_HASH: "artha_pin_hash",
   PIN_SET: "artha_pin_set",
+  BUDGETS: "artha_budgets",
 };
 
 // ============= Transactions =============
@@ -218,4 +219,89 @@ export const usePinStorage = () => {
   }, []);
 
   return { getPinHash, setPinHash, isPinSet };
+};
+
+// ============= Budgets =============
+
+export const useBudgets = () => {
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadBudgets = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem(KEYS.BUDGETS);
+      setBudgets(stored ? JSON.parse(stored) : []);
+    } catch (e) {
+      console.error("Failed to load budgets", e);
+      setBudgets([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load on mount
+  useEffect(() => {
+    loadBudgets();
+  }, [loadBudgets]);
+
+  // Refresh on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      loadBudgets();
+    }, [loadBudgets]),
+  );
+
+  const saveBudgets = useCallback(async (buds: Budget[]) => {
+    try {
+      await AsyncStorage.setItem(KEYS.BUDGETS, JSON.stringify(buds));
+      setBudgets(buds);
+    } catch (e) {
+      console.error("Failed to save budgets", e);
+    }
+  }, []);
+
+  const addBudget = useCallback(
+    async (budget: Budget) => {
+      const updated = [...budgets, budget];
+      await saveBudgets(updated);
+    },
+    [budgets, saveBudgets],
+  );
+
+  const updateBudget = useCallback(
+    async (id: string, updates: Partial<Budget>) => {
+      const updated = budgets.map((b) =>
+        b.id === id ? { ...b, ...updates } : b,
+      );
+      await saveBudgets(updated);
+    },
+    [budgets, saveBudgets],
+  );
+
+  const deleteBudget = useCallback(
+    async (id: string) => {
+      const updated = budgets.filter((b) => b.id !== id);
+      await saveBudgets(updated);
+    },
+    [budgets, saveBudgets],
+  );
+
+  const getBudgetForCategory = useCallback(
+    (categoryId: string, year: number, month: number) => {
+      return budgets.find(
+        (b) =>
+          b.categoryId === categoryId && b.year === year && b.month === month,
+      );
+    },
+    [budgets],
+  );
+
+  return {
+    budgets,
+    loading,
+    addBudget,
+    updateBudget,
+    deleteBudget,
+    getBudgetForCategory,
+  };
 };

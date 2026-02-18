@@ -32,3 +32,12 @@ export interface MonthlyStats {
     type: TransactionType;
   }[];
 }
+
+export interface Budget {
+  id: string;
+  categoryId: string;
+  limit: number; // Budget limit in IDR
+  year: number;
+  month: number; // 1-12
+  createdAt: string;
+}

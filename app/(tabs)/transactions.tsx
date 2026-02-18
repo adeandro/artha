@@ -5,6 +5,7 @@
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { TransactionSearchFilter } from "@/components/transaction-search-filter";
 import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
 import { useTransactions } from "@/hooks/storage/useStorage";
@@ -29,37 +30,64 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export const TransactionsScreen = () => {
   const { transactions, loading, deleteTransaction } = useTransactions();
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
+  const [filters, setFilters] = useState({
+    searchText: "",
+    startDate: null as string | null,
+    endDate: null as string | null,
+  });
 
   const { start, end } = getMonthDateRange(
     selectedMonth.year,
     selectedMonth.month,
   );
 
-  // Filter transactions for selected month and group by date
-  const groupedTransactions = useMemo(() => {
-    const monthTxns = transactions
-      .filter((t) => t.date >= start && t.date <= end)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  // Apply search and date range filters
+  const filteredGroupedTransactions = useMemo(() => {
+    let filtered = transactions;
 
-    // Group by date
+    // Apply custom date range if provided
+    if (filters.startDate && filters.endDate) {
+      filtered = filtered.filter(
+        (t) => t.date >= filters.startDate && t.date <= filters.endDate,
+      );
+    } else {
+      // Otherwise use month filter
+      filtered = filtered.filter((t) => t.date >= start && t.date <= end);
+    }
+
+    // Apply search filter
+    if (filters.searchText) {
+      const searchLower = filters.searchText.toLowerCase();
+      filtered = filtered.filter(
+        (t) =>
+          (t.notes && t.notes.toLowerCase().includes(searchLower)) ||
+          t.category.toLowerCase().includes(searchLower),
+      );
+    }
+
+    // Sort and group by date
+    const sorted = filtered.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+
     const groups: Record<string, Transaction[]> = {};
-    monthTxns.forEach((txn) => {
+    sorted.forEach((txn) => {
       if (!groups[txn.date]) {
         groups[txn.date] = [];
       }
       groups[txn.date].push(txn);
     });
 
-    // Sort dates from newest to oldest
     return Object.entries(groups)
-      .sort(([dateA], [dateB]) => 
-        new Date(dateB).getTime() - new Date(dateA).getTime()
+      .sort(
+        ([dateA], [dateB]) =>
+          new Date(dateB).getTime() - new Date(dateA).getTime(),
       )
       .map(([date, txns]) => ({
         title: formatDate(date),
         data: txns,
       }));
-  }, [transactions, start, end]);
+  }, [transactions, start, end, filters]);
 
   const handleDelete = async (id: string) => {
     Alert.alert(Strings.deleteCategory, Strings.confirmDelete, [
@@ -131,10 +159,13 @@ export const TransactionsScreen = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Search & Filter */}
+      <TransactionSearchFilter onFilterChange={setFilters} />
+
       {/* Transactions List */}
-      {groupedTransactions.length > 0 ? (
+      {filteredGroupedTransactions.length > 0 ? (
         <SectionList
-          sections={groupedTransactions}
+          sections={filteredGroupedTransactions}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <TransactionRow

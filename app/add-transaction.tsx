@@ -10,6 +10,7 @@ import { useCategories, useTransactions } from "@/hooks/storage/useStorage";
 import { formatCurrency, parseCurrency } from "@/lib/currency";
 import { getTodayDateString } from "@/lib/date";
 import { Transaction, TransactionType } from "@/lib/types";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -30,10 +31,38 @@ export const AddTransactionScreen = () => {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [date, setDate] = useState(getTodayDateString());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [notes, setNotes] = useState("");
 
   const { addTransaction } = useTransactions();
   const { categories } = useCategories();
+
+  // Format date from Date object to YYYY-MM-DD string
+  const formatDateToString = (dateObj: Date): string => {
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const day = String(dateObj.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // Parse date string to Date object
+  const stringToDate = (dateStr: string): Date => {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  // Handle date picker change
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+    }
+
+    if (selectedDate) {
+      const formattedDate = formatDateToString(selectedDate);
+      setDate(formattedDate);
+      if (__DEV__) console.log("[DATE] Selected:", formattedDate);
+    }
+  };
 
   // Filter categories by transaction type
   const typeCategories = useMemo(
@@ -181,13 +210,39 @@ export const AddTransactionScreen = () => {
             </View>
           </View>
 
-          {/* Date Input */}
+          {/* Date Input - Date Picker */}
           <View style={styles.section}>
             <ThemedText style={styles.label}>{Strings.date}</ThemedText>
-            <View style={styles.dateInput}>
-              <ThemedText style={styles.dateValue}>{date}</ThemedText>
-            </View>
+            <TouchableOpacity
+              style={styles.datePickerButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <ThemedText style={styles.datePickerText}>{date}</ThemedText>
+              <ThemedText style={styles.datePickerIcon}>📅</ThemedText>
+            </TouchableOpacity>
           </View>
+
+          {/* Date Picker Modal */}
+          {showDatePicker && (
+            <DateTimePicker
+              value={stringToDate(date)}
+              mode="date"
+              display={Platform.OS === "ios" ? "spinner" : "default"}
+              onChange={handleDateChange}
+            />
+          )}
+
+          {/* Close Date Picker Button (iOS) */}
+          {showDatePicker && Platform.OS === "ios" && (
+            <View style={styles.datePickerActions}>
+              <TouchableOpacity
+                style={styles.datePickerDone}
+                onPress={() => setShowDatePicker(false)}
+              >
+                <ThemedText style={styles.datePickerDoneText}>Done</ThemedText>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Notes */}
           <View style={styles.section}>
@@ -347,10 +402,48 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 2,
     borderColor: ArthaColors.gray200,
-  },
-  dateValue: {
     fontSize: 14,
     color: ArthaColors.primaryDark,
+  },
+  datePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: ArthaColors.white,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: ArthaColors.gray200,
+  },
+  datePickerText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: ArthaColors.primaryDark,
+    flex: 1,
+  },
+  datePickerIcon: {
+    fontSize: 20,
+    marginLeft: 8,
+  },
+  datePickerActions: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: ArthaColors.white,
+    borderTopWidth: 1,
+    borderTopColor: ArthaColors.gray200,
+    alignItems: "flex-end",
+  },
+  datePickerDone: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: ArthaColors.primaryAccent,
+    borderRadius: 6,
+  },
+  datePickerDoneText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ArthaColors.white,
   },
   notesInput: {
     paddingVertical: 10,

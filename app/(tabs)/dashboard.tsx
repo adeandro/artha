@@ -3,11 +3,17 @@
  * Shows monthly summary and key statistics
  */
 
+import { BudgetProgressBar } from "@/components/charts/budget-progress-bar";
+import { CategoryPieChart } from "@/components/charts/category-pie-chart";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
-import { useCategories, useTransactions } from "@/hooks/storage/useStorage";
+import {
+  useBudgets,
+  useCategories,
+  useTransactions,
+} from "@/hooks/storage/useStorage";
 import { formatCurrency } from "@/lib/currency";
 import { formatDate, getCurrentMonth, getMonthDateRange } from "@/lib/date";
 import { exportTransactionsToExcel } from "@/lib/excel-export";
@@ -72,6 +78,42 @@ const DashboardScreenComponent = () => {
       recentTransactions,
     };
   }, [transactions, start, end, categories]);
+
+  const { budgets } = useBudgets();
+
+  // Prepare data for Pie Chart
+  const categoryBreakdown = useMemo(() => {
+    const totalExpense = stats.topCategories.reduce(
+      (sum, cat) => sum + cat.amount,
+      0,
+    );
+    return stats.topCategories.map((cat) => ({
+      name: cat.name,
+      amount: cat.amount,
+      percentage: totalExpense > 0 ? (cat.amount / totalExpense) * 100 : 0,
+    }));
+  }, [stats.topCategories]);
+
+  // Prepare data for Budget Progress Bars
+  const currentMonthBudgets = useMemo(() => {
+    return budgets
+      .filter((b) => b.year === year && b.month === month)
+      .map((budget) => {
+        const categoryName =
+          categories.find((c) => c.id === budget.categoryId)?.name ||
+          budget.categoryId;
+        const spent = transactions
+          .filter(
+            (t) =>
+              t.category === budget.categoryId &&
+              t.type === "expense" &&
+              t.date.startsWith(`${year}-${String(month).padStart(2, "0")}`),
+          )
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        return { categoryName, limit: budget.limit, spent };
+      });
+  }, [budgets, year, month, categories, transactions]);
 
   // Handler untuk export data ke Excel
   const handleExportExcel = async () => {
@@ -163,25 +205,17 @@ const DashboardScreenComponent = () => {
           </ThemedText>
         </View>
 
-        {/* Top Categories */}
+        {/* Category Pie Chart */}
         {stats.topCategories.length > 0 && (
-          <View style={styles.section}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              {Strings.topCategories}
-            </ThemedText>
-            <View style={styles.categoriesList}>
-              {stats.topCategories.map((cat, index) => (
-                <View key={index} style={styles.categoryItem}>
-                  <ThemedText style={styles.categoryName}>
-                    {cat.name}
-                  </ThemedText>
-                  <ThemedText style={styles.categoryAmount}>
-                    {formatCurrency(cat.amount)}
-                  </ThemedText>
-                </View>
-              ))}
-            </View>
-          </View>
+          <CategoryPieChart
+            data={categoryBreakdown}
+            total={stats.totalExpense}
+          />
+        )}
+
+        {/* Budget Progress Bars */}
+        {currentMonthBudgets.length > 0 && (
+          <BudgetProgressBar items={currentMonthBudgets} />
         )}
 
         {/* Recent Transactions */}
@@ -306,9 +340,17 @@ const styles = StyleSheet.create({
   },
   incomeCard: {
     backgroundColor: ArthaColors.success,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   expenseCard: {
     backgroundColor: ArthaColors.error,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   cardLabel: {
     fontSize: 12,
@@ -330,9 +372,17 @@ const styles = StyleSheet.create({
   },
   balancePositive: {
     backgroundColor: ArthaColors.primaryDark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   balanceNegative: {
     backgroundColor: ArthaColors.error,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   balanceLabel: {
     fontSize: 14,

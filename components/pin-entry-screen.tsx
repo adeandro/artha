@@ -8,8 +8,7 @@ import { ThemedView } from "@/components/themed-view";
 import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -30,7 +29,48 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   const { login, setPin: savePin } = useAuth();
-  const router = useRouter();
+  const loginAttemptRef = useRef(false);
+
+  // Handle auto-submit login
+  const handleAutoLoginSubmit = useCallback(async () => {
+    if (__DEV__) console.log("[PIN] Starting validation...");
+    setIsLoading(true);
+
+    try {
+      const success = await login(pin);
+
+      if (success) {
+        if (__DEV__) console.log("[PIN] Login successful");
+        setPin("");
+        onSuccess();
+      } else {
+        if (__DEV__) console.log("[PIN] Invalid PIN");
+        Alert.alert(Strings.pinIncorrect, Strings.pinIncorrect);
+        setPin("");
+        loginAttemptRef.current = false;
+      }
+    } catch (error) {
+      console.error("[PIN] Error:", error);
+      Alert.alert("Error", String(error));
+      setPin("");
+      loginAttemptRef.current = false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [pin, login, onSuccess]);
+
+  // AUTO-SUBMIT LOGIN: Trigger when PIN reaches 6 digits (LOGIN MODE ONLY)
+  useEffect(() => {
+    if (
+      mode === "login" &&
+      pin.length === 6 &&
+      !loginAttemptRef.current &&
+      !isLoading
+    ) {
+      loginAttemptRef.current = true;
+      handleAutoLoginSubmit();
+    }
+  }, [pin.length, mode, isLoading, handleAutoLoginSubmit]);
 
   const handleDigitPress = (digit: string) => {
     if (step === "first" && pin.length < 6) {
@@ -53,16 +93,8 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
 
     try {
       if (mode === "login") {
-        const success = await login(pin);
-        if (success) {
-          onSuccess();
-          // Redirect to dashboard after successful login
-          // Use absolute path for production build compatibility
-          router.replace("/(tabs)/dashboard");
-        } else {
-          Alert.alert(Strings.pinIncorrect, Strings.pinIncorrect);
-          setPin("");
-        }
+        // Login mode - should not reach here (auto-submit)
+        return;
       } else if (mode === "setup" || mode === "change") {
         if (step === "first") {
           if (pin.length !== 6) {
@@ -85,10 +117,9 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
           const success = await savePin(pin);
           if (success) {
             Alert.alert("Success", Strings.pinSetSuccessfully);
+            setPin("");
+            setConfirmPin("");
             onSuccess();
-            // Redirect to dashboard after successful PIN setup
-            // Use absolute path for production build compatibility
-            router.replace("/(tabs)/dashboard");
           }
         }
       }
@@ -167,18 +198,30 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Submit Button */}
-        <TouchableOpacity
-          style={[styles.submitButton, !isReady && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={!isReady || isLoading}
-        >
-          <ThemedText style={styles.submitText}>
-            {step === "first" && mode !== "login"
-              ? Strings.confirmPin
-              : Strings.enterPin}
-          </ThemedText>
-        </TouchableOpacity>
+        {/* Status Message for Login Mode */}
+        {mode === "login" && pin.length === 6 && (
+          <View style={styles.statusContainer}>
+            <ThemedText style={styles.statusText}>
+              {isLoading ? "Memvalidasi PIN..." : ""}
+            </ThemedText>
+          </View>
+        )}
+
+        {/* Submit Button - Only for Setup/Change Mode */}
+        {mode !== "login" && (
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              !isReady && styles.submitButtonDisabled,
+            ]}
+            onPress={handleSubmit}
+            disabled={!isReady || isLoading}
+          >
+            <ThemedText style={styles.submitText}>
+              {step === "first" ? Strings.confirmPin : Strings.enterPin}
+            </ThemedText>
+          </TouchableOpacity>
+        )}
       </ThemedView>
     </SafeAreaView>
   );
@@ -269,5 +312,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: ArthaColors.white,
+  },
+  statusContainer: {
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: ArthaColors.primaryAccent,
   },
 });

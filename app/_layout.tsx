@@ -1,4 +1,5 @@
 import { PinEntryScreen } from "@/components/pin-entry-screen";
+import { ArthaColors } from "@/constants/colors";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
@@ -8,7 +9,7 @@ import {
 } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
+import React, { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import "react-native-reanimated";
 
@@ -22,6 +23,17 @@ function RootLayoutInner() {
   const colorScheme = useColorScheme();
   const { isAuthenticated, isPinSetup, isLoading } = useAuth();
 
+  // Debug logging - only log state transitions in dev mode
+  useEffect(() => {
+    if (__DEV__) {
+      console.log("[AUTH] State changed:", {
+        isLoading,
+        isPinSetup,
+        isAuthenticated,
+      });
+    }
+  }, [isLoading, isPinSetup, isAuthenticated]);
+
   // If auth is still loading, show loading screen
   if (isLoading) {
     return (
@@ -30,10 +42,10 @@ function RootLayoutInner() {
           flex: 1,
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: "#ffffff",
+          backgroundColor: colorScheme === "dark" ? "#1a1a1a" : "#ffffff",
         }}
       >
-        <ActivityIndicator size="large" color="#D1801E" />
+        <ActivityIndicator size="large" color={ArthaColors.primaryAccent} />
       </View>
     );
   }
@@ -42,12 +54,7 @@ function RootLayoutInner() {
   if (!isPinSetup) {
     return (
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <PinEntryScreen
-          mode="setup"
-          onSuccess={() => {
-            // Auth state will update automatically, triggering re-render
-          }}
-        />
+        <PinEntryScreen key="pin-setup" mode="setup" onSuccess={() => {}} />
         <StatusBar style="light" />
       </ThemeProvider>
     );
@@ -57,19 +64,13 @@ function RootLayoutInner() {
   if (!isAuthenticated) {
     return (
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <PinEntryScreen
-          mode="login"
-          onSuccess={() => {
-            // Auth state will update automatically, triggering re-render
-          }}
-        />
+        <PinEntryScreen key="pin-login" mode="login" onSuccess={() => {}} />
         <StatusBar style="light" />
       </ThemeProvider>
     );
   }
 
   // If authenticated, show main app with tabs
-  // Use Stack with explicit screen definitions for production compatibility
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
@@ -77,7 +78,6 @@ function RootLayoutInner() {
           name="(tabs)"
           options={{
             headerShown: false,
-            animationEnabled: false,
           }}
         />
         <Stack.Screen
@@ -85,7 +85,6 @@ function RootLayoutInner() {
           options={{
             presentation: "modal",
             title: "Tambah Transaksi",
-            animationEnabled: true,
           }}
         />
       </Stack>
@@ -94,10 +93,13 @@ function RootLayoutInner() {
   );
 }
 
+// Memoize to prevent unnecessary re-renders of the entire layout
+const MemoizedRootLayoutInner = React.memo(RootLayoutInner);
+
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootLayoutInner />
+      <MemoizedRootLayoutInner />
     </AuthProvider>
   );
 }

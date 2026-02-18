@@ -33,16 +33,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const { getPinHash, setPinHash, isPinSet } = usePinStorage();
 
-  // Initialize on mount
+  // Initialize on mount - only run once
   useEffect(() => {
     const init = async () => {
+      if (__DEV__) console.log("[AuthContext] Initializing...");
       try {
         const isSet = await isPinSet();
         setIsPinSetup(isSet);
 
         const hash = await getPinHash();
+
         if (!hash) {
-          // First time: set default PIN
+          if (__DEV__)
+            console.log("[AuthContext] First launch - setting default PIN");
           const defaultHash = getDefaultPinHash();
           await setPinHash(defaultHash);
           setPinHashState(defaultHash);
@@ -50,8 +53,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setPinHashState(hash);
         }
       } catch (e) {
-        console.error("Failed to initialize auth", e);
+        console.error("[AuthContext] Initialization failed:", e);
       } finally {
+        if (__DEV__) console.log("[AuthContext] Init complete");
         setIsLoading(false);
       }
     };
@@ -60,11 +64,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const login = useCallback(
     async (pin: string): Promise<boolean> => {
-      if (!pinHash) return false;
+      if (!pinHash) {
+        if (__DEV__) console.log("[AuthContext] Login failed: no PIN hash");
+        return false;
+      }
 
       const isValid = verifyPin(pin, pinHash);
       if (isValid) {
         setIsAuthenticated(true);
+        if (__DEV__) console.log("[AuthContext] Login successful");
       }
       return isValid;
     },
@@ -79,10 +87,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         await setPinHash(newHash);
         setPinHashState(newHash);
         setIsPinSetup(true);
-        setIsAuthenticated(true); // Auto-authenticate after PIN setup
+        setIsAuthenticated(true);
+        if (__DEV__) console.log("[AuthContext] PIN set successfully");
         return true;
       } catch (e) {
-        console.error("Failed to set PIN", e);
+        console.error("[AuthContext] Failed to set PIN:", e);
         return false;
       }
     },
