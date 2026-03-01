@@ -11,6 +11,14 @@ export interface Transaction {
   category: string; // category id
   amount: number; // in IDR
   notes?: string;
+  dashboardId?: string; // Optional for backward compatibility, required for new txns
+}
+
+export interface Dashboard {
+  id: string;
+  name: string;
+  createdAt: string;
+  isDefault?: boolean;
 }
 
 export interface Category {

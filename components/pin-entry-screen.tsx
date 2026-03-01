@@ -8,8 +8,10 @@ import { ThemedView } from "@/components/themed-view";
 import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
 import { useAuth } from "@/context/AuthContext";
+import { useBiometricStorage } from "@/hooks/storage/useStorage";
+import { useBiometric } from "@/hooks/useBiometric";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, Keyboard, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 interface PinEntryScreenProps {
@@ -28,8 +30,11 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
   );
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login, setPin: savePin } = useAuth();
+  const { login, loginWithBiometric, setPin: savePin } = useAuth();
+  const { isBiometricEnabled } = useBiometricStorage();
+  const { isSupported } = useBiometric();
   const loginAttemptRef = useRef(false);
+  const biometricAttemptedRef = useRef(false);
   const isMountedRef = useRef(true);
 
   // Cleanup on unmount
@@ -38,6 +43,47 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
       isMountedRef.current = false;
     };
   }, []);
+
+  // Auto-trigger biometric on mount (only for login mode)
+  useEffect(() => {
+    const attemptBiometricLogin = async () => {
+      if (
+        mode !== "login" ||
+        !isSupported ||
+        !isBiometricEnabled ||
+        biometricAttemptedRef.current
+      ) {
+        return;
+      }
+
+      biometricAttemptedRef.current = true;
+
+      if (__DEV__) console.log("[PIN] Auto-triggering biometric on app launch");
+
+      const bioSuccess = await loginWithBiometric(
+        "Autentikasi untuk mengakses Artha",
+      );
+
+      if (!isMountedRef.current) return;
+
+      if (bioSuccess) {
+        if (__DEV__)
+          console.log(
+            "[PIN] Biometric successful - dismissing keyboard and redirecting",
+          );
+        Keyboard.dismiss();
+        setPin("");
+        if (isMountedRef.current) {
+          onSuccess();
+        }
+      } else {
+        if (__DEV__)
+          console.log("[PIN] Biometric cancelled or failed - waiting for PIN");
+      }
+    };
+
+    attemptBiometricLogin();
+  }, [mode, isSupported, isBiometricEnabled, loginWithBiometric, onSuccess]);
 
   // Handle auto-submit login with proper async safety
   const handleAutoLoginSubmit = useCallback(async () => {
@@ -64,12 +110,10 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
       }
 
       if (success) {
-        if (__DEV__) console.log("[PIN] Login successful - calling onSuccess");
+        if (__DEV__) console.log("[PIN] PIN valid - dismissing keyboard and redirecting");
+        // Force dismiss keyboard before navigation
+        Keyboard.dismiss();
         setPin("");
-        // Give state time to settle before calling success
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        // Double check mounted before callback
         if (isMountedRef.current) {
           onSuccess();
         }
@@ -124,6 +168,49 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
       setPin(pin.slice(0, -1));
     } else if (step === "confirm" && confirmPin.length > 0) {
       setConfirmPin(confirmPin.slice(0, -1));
+    }
+  };
+
+  const handleBiometricPress = async () => {
+    if (!isSupported || mode !== "login") {
+      return;
+    }
+
+    if (__DEV__) console.log("[PIN] Manual biometric authentication triggered");
+
+    setIsLoading(true);
+    try {
+      const success = await loginWithBiometric(
+        "Autentikasi dengan biometrik untuk mengakses Artha",
+      );
+
+      if (!isMountedRef.current) {
+        setIsLoading(false);
+        return;
+      }
+
+      if (success) {
+        if (__DEV__)
+          console.log(
+            "[PIN] Manual biometric successful - dismissing keyboard and redirecting",
+          );
+        Keyboard.dismiss();
+        setPin("");
+        if (isMountedRef.current) {
+          onSuccess();
+        }
+      } else {
+        if (__DEV__) console.log("[PIN] Manual biometric cancelled or failed");
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
+      }
+    } catch (error) {
+      console.error("[PIN] Biometric error:", error);
+      if (isMountedRef.current) {
+        Alert.alert("Error", "Gagal melakukan autentikasi biometrik. Silakan coba lagi.");
+        setIsLoading(false);
+      }
     }
   };
 
@@ -282,6 +369,19 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
           </TouchableOpacity>
         </View>
 
+        {/* Biometric Button - Only for Login Mode AND when Enabled */}
+        {mode === "login" && isSupported && isBiometricEnabled && !isLoading && (
+          <View style={styles.biometricSection}>
+            <TouchableOpacity
+              style={styles.biometricIconButton}
+              onPress={handleBiometricPress}
+              disabled={isLoading}
+            >
+              <ThemedText style={styles.biometricIcon}>⊙</ThemedText>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Status Message for Login Mode */}
         {mode === "login" && pin.length === 6 && (
           <View style={styles.statusContainer}>
@@ -406,5 +506,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: ArthaColors.primaryAccent,
+  },
+  biometricSection: {
+    marginTop: 24,
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  biometricIconButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: ArthaColors.primaryAccent,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: ArthaColors.primaryAccent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  biometricIcon: {
+    fontSize: 32,
   },
 });

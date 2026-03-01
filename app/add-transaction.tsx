@@ -6,6 +6,7 @@
 import { ThemedText } from "@/components/themed-text";
 import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
+import { useDashboardContext } from "@/context/DashboardContext";
 import { useCategories, useTransactions } from "@/hooks/storage/useStorage";
 import { formatCurrency, parseCurrency } from "@/lib/currency";
 import { getTodayDateString } from "@/lib/date";
@@ -14,14 +15,14 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -36,6 +37,7 @@ export const AddTransactionScreen = () => {
 
   const { addTransaction } = useTransactions();
   const { categories } = useCategories();
+  const { activeDashboardId } = useDashboardContext();
 
   // Format date from Date object to YYYY-MM-DD string
   const formatDateToString = (dateObj: Date): string => {
@@ -94,12 +96,13 @@ export const AddTransactionScreen = () => {
         category,
         amount: parseCurrency(amount),
         notes: notes.trim() || undefined,
+        dashboardId: activeDashboardId,
       };
 
       await addTransaction(transaction);
       Alert.alert("Success", Strings.savedSuccessfully);
       router.back();
-    } catch (e) {
+    } catch {
       Alert.alert("Error", Strings.errorOccurred);
     }
   };

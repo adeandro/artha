@@ -18,6 +18,23 @@ export const Strings = {
   setNewPin: "Atur PIN baru Anda",
   pinSetSuccessfully: "PIN berhasil diatur",
 
+  // Biometric Authentication
+  biometric: "Biometrik",
+  enableBiometric: "Aktifkan Autentikasi Biometrik",
+  disableBiometric: "Matikan Autentikasi Biometrik",
+  biometricLogin: "Login dengan Biometrik",
+  biometricNotAvailable: "Biometrik tidak tersedia di perangkat ini",
+  biometricNotEnrolled: "Tidak ada sidik jari atau wajah yang terdaftar",
+  biometricError:
+    "Gagal mengautentikasi dengan biometrik. Gunakan PIN sebagai alternatif.",
+  biometricAuthenticationFailed: "Autentikasi biometrik gagal",
+  biometricTryAgain: "Silakan coba lagi",
+  biometricSecuritySettings: "Pengaturan Keamanan Biometrik",
+  useFingerprint: "Gunakan Sidik Jari",
+  useFaceId: "Gunakan Face ID",
+  biometricEnabled: "Biometrik diaktifkan",
+  biometricDisabled: "Biometrik dinonaktifkan",
+
   // Navigation & Tabs
   dashboard: "Dashboard",
   transactions: "Transaksi",

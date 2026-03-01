@@ -7,12 +7,14 @@ import { BudgetProgressBar } from "@/components/charts/budget-progress-bar";
 import { CategoryPieChart } from "@/components/charts/category-pie-chart";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { DashboardSwitcher } from "@/components/ui/dashboard-switcher";
 import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
+import { useDashboardContext } from "@/context/DashboardContext";
 import {
-  useBudgets,
-  useCategories,
-  useTransactions,
+    useBudgets,
+    useCategories,
+    useTransactions,
 } from "@/hooks/storage/useStorage";
 import { formatCurrency } from "@/lib/currency";
 import { formatDate, getCurrentMonth, getMonthDateRange } from "@/lib/date";
@@ -20,35 +22,45 @@ import { exportTransactionsToExcel } from "@/lib/excel-export";
 import { Link } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const DashboardScreenComponent = () => {
-  const { transactions, loading } = useTransactions();
+  const { transactions, loading: txnsLoading } = useTransactions();
   const { categories } = useCategories();
   const { year, month } = getCurrentMonth();
   const { start, end } = getMonthDateRange(year, month);
   const [isExporting, setIsExporting] = useState(false);
   const [isIncomeChartCollapsed, setIsIncomeChartCollapsed] = useState(true);
   const [isExpenseChartCollapsed, setIsExpenseChartCollapsed] = useState(true);
+  const { activeDashboardId, loading: ctxLoading } = useDashboardContext();
+
+  const loading = txnsLoading || ctxLoading;
 
   const stats = useMemo(() => {
-    const monthTransactions = transactions.filter(
-      (t) => t.date >= start && t.date <= end,
+    // 1. Filter by active dashboard
+    const dashboardTransactions = transactions.filter(
+      (t) => (t.dashboardId || "default") === activeDashboardId
     );
 
-    const totalIncome = monthTransactions
+    // 2. All-time cumulative stats (NOT RESETTING PER MONTH)
+    const totalIncome = dashboardTransactions
       .filter((t) => t.type === "income")
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const totalExpense = monthTransactions
+    const totalExpense = dashboardTransactions
       .filter((t) => t.type === "expense")
       .reduce((sum, t) => sum + t.amount, 0);
+
+    // 3. Month specific stats for charts and recent list
+    const monthTransactions = dashboardTransactions.filter(
+      (t) => t.date >= start && t.date <= end,
+    );
 
     // Get top 3 expense categories
     const expenseCategoryTotals: Record<
@@ -90,8 +102,8 @@ const DashboardScreenComponent = () => {
       (a, b) => b.amount - a.amount,
     );
 
-    // Get 5 most recent transactions
-    const recentTransactions = transactions
+    // Get 5 most recent transactions from active dashboard
+    const recentTransactions = dashboardTransactions
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
 
@@ -102,8 +114,9 @@ const DashboardScreenComponent = () => {
       topExpenseCategories,
       topIncomeCategories,
       recentTransactions,
+      dashboardTransactions // pass this down if needed
     };
-  }, [transactions, start, end, categories]);
+  }, [transactions, start, end, categories, activeDashboardId]);
 
   const { budgets } = useBudgets();
 
@@ -155,18 +168,18 @@ const DashboardScreenComponent = () => {
         let spent = 0;
         if (budget.isCustomPeriod && budget.startDate && budget.endDate) {
           // Custom period: sum transactions within the date range
-          spent = transactions
+          spent = stats.dashboardTransactions
             .filter(
               (t) =>
                 t.category === budget.categoryId &&
                 t.type === "expense" &&
-                t.date >= budget.startDate &&
-                t.date <= budget.endDate,
+                t.date >= budget.startDate! &&
+                t.date <= budget.endDate!,
             )
             .reduce((sum, t) => sum + t.amount, 0);
         } else {
           // Monthly budget: sum transactions for current month
-          spent = transactions
+          spent = stats.dashboardTransactions
             .filter(
               (t) =>
                 t.category === budget.categoryId &&
@@ -228,11 +241,9 @@ const DashboardScreenComponent = () => {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header */}
+        {/* Header (Dashboard Switcher) */}
         <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>
-            {Strings.dashboard}
-          </ThemedText>
+          <DashboardSwitcher />
         </View>
 
         {/* Stats Cards */}

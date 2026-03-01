@@ -9,10 +9,12 @@ import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
 import { useAuth } from "@/context/AuthContext";
 import {
+  useBiometricStorage,
   useBudgets,
   useCategories,
   useTransactions,
 } from "@/hooks/storage/useStorage";
+import { useBiometric } from "@/hooks/useBiometric";
 import { formatCurrency } from "@/lib/currency";
 import { getCurrentMonth } from "@/lib/date";
 import { exportTransactionsToExcel } from "@/lib/excel-export";
@@ -41,6 +43,8 @@ export const SettingsScreen = () => {
   const { transactions, addTransaction } = useTransactions();
   const { budgets, addBudget, deleteBudget } = useBudgets();
   const { logout } = useAuth();
+  const { isBiometricEnabled, setBiometricEnabled } = useBiometricStorage();
+  const { isSupported, displayName } = useBiometric();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showChangePinModal, setShowChangePinModal] = useState(false);
@@ -53,6 +57,21 @@ export const SettingsScreen = () => {
   >(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  const handleToggleBiometric = async () => {
+    try {
+      const newValue = !isBiometricEnabled;
+      await setBiometricEnabled(newValue);
+      Alert.alert(
+        "Success",
+        newValue
+          ? "Biometrik berhasil diaktifkan"
+          : "Biometrik berhasil dinonaktifkan",
+      );
+    } catch {
+      Alert.alert("Error", "Gagal mengubah pengaturan biometrik");
+    }
+  };
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) {
@@ -244,6 +263,51 @@ export const SettingsScreen = () => {
           </TouchableOpacity>
         </View>
 
+        {/* Biometric Section */}
+        {isSupported && (
+          <View style={styles.section}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              {Strings.biometricSecuritySettings}
+            </ThemedText>
+            <TouchableOpacity
+              style={[
+                styles.button,
+                styles.biometricToggleButton,
+                isBiometricEnabled && styles.biometricToggleButtonActive,
+              ]}
+              onPress={handleToggleBiometric}
+            >
+              <View style={styles.biometricToggleContent}>
+                <ThemedText
+                  style={[
+                    styles.buttonText,
+                    styles.biometricToggleMainText,
+                  ]}
+                >
+                  {isBiometricEnabled ? "✓ " : "○ "}
+                  {displayName === "Face ID"
+                    ? Strings.useFaceId
+                    : Strings.useFingerprint}
+                </ThemedText>
+              </View>
+              <ThemedText
+                style={[
+                  styles.biometricToggleStatus,
+                  {
+                    color: isBiometricEnabled
+                      ? ArthaColors.success
+                      : ArthaColors.gray500,
+                  },
+                ]}
+              >
+                {isBiometricEnabled
+                  ? Strings.biometricEnabled
+                  : Strings.biometricDisabled}
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Categories Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -286,6 +350,10 @@ export const SettingsScreen = () => {
                   key={cat.id}
                   category={cat}
                   onDelete={() => handleDeleteCategory(cat.id)}
+                  onSetBudget={() => {
+                    setSelectedCategoryForBudget(cat.id);
+                    setShowAddBudgetModal(true);
+                  }}
                 />
               ))}
           </View>
@@ -295,15 +363,35 @@ export const SettingsScreen = () => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Setting Budget
+              📊 Setting Budget
             </ThemedText>
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => setShowAddBudgetModal(true)}
-            >
-              <ThemedText style={styles.addButtonText}>+</ThemedText>
-            </TouchableOpacity>
+            <ThemedText style={styles.budgetSectionSubtitle}>
+              {budgets.filter(
+                (b) =>
+                  b.year === getCurrentMonth().year &&
+                  b.month === getCurrentMonth().month,
+              ).length === 0
+                ? "Belum ada"
+                : `${budgets.filter(
+                    (b) =>
+                      b.year === getCurrentMonth().year &&
+                      b.month === getCurrentMonth().month,
+                  ).length} aktif`}
+            </ThemedText>
           </View>
+
+          {/* Show Message if No Budgets */}
+          {budgets.filter(
+            (b) =>
+              b.year === getCurrentMonth().year &&
+              b.month === getCurrentMonth().month,
+          ).length === 0 ? (
+            <View style={styles.noBudgetBox}>
+              <ThemedText style={styles.noBudgetText}>
+                Belum ada budget. Klik tombol &quot;Budget&quot; di kategori pengeluaran untuk memulai.
+              </ThemedText>
+            </View>
+          ) : null}
 
           {/* Current Budgets */}
           {budgets
@@ -326,25 +414,36 @@ export const SettingsScreen = () => {
                       {formatCurrency(budget.limit)}
                     </ThemedText>
                   </View>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => {
-                      Alert.alert(
-                        "Hapus Budget",
-                        "Yakin ingin menghapus budget ini?",
-                        [
-                          { text: "Cancel", style: "cancel" },
-                          {
-                            text: "Hapus",
-                            style: "destructive",
-                            onPress: () => deleteBudget(budget.id),
-                          },
-                        ],
-                      );
-                    }}
-                  >
-                    <ThemedText style={styles.deleteButtonText}>✕</ThemedText>
-                  </TouchableOpacity>
+                  <View style={styles.budgetActions}>
+                    <TouchableOpacity
+                      style={[styles.budgetActionButton, styles.editBudgetButton]}
+                      onPress={() => {
+                        setSelectedCategoryForBudget(budget.categoryId);
+                        setShowAddBudgetModal(true);
+                      }}
+                    >
+                      <ThemedText style={styles.budgetActionButtonText}>✏️</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.budgetActionButton, styles.deleteBudgetButton]}
+                      onPress={() => {
+                        Alert.alert(
+                          "Hapus Budget",
+                          `Yakin ingin menghapus budget untuk ${categoryName}?`,
+                          [
+                            { text: "Batal", style: "cancel" },
+                            {
+                              text: "Hapus",
+                              style: "destructive",
+                              onPress: () => deleteBudget(budget.id),
+                            },
+                          ],
+                        );
+                      }}
+                    >
+                      <ThemedText style={styles.budgetActionButtonText}>✕</ThemedText>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             })}
@@ -551,17 +650,25 @@ export const SettingsScreen = () => {
 interface CategoryRowProps {
   category: Category;
   onDelete: () => void;
+  onSetBudget?: () => void;
 }
 
-const CategoryRow: React.FC<CategoryRowProps> = ({ category, onDelete }) => {
+const CategoryRow: React.FC<CategoryRowProps> = ({ category, onDelete, onSetBudget }) => {
   return (
     <View style={styles.categoryRow}>
       <ThemedText style={styles.categoryRowName}>{category.name}</ThemedText>
-      <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
-        <ThemedText style={styles.deleteButtonText}>
-          {Strings.delete}
-        </ThemedText>
-      </TouchableOpacity>
+      <View style={styles.categoryRowActions}>
+        {category.type === "expense" && onSetBudget && (
+          <TouchableOpacity onPress={onSetBudget} style={styles.budgetButton}>
+            <ThemedText style={styles.budgetButtonText}>Budget</ThemedText>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
+          <ThemedText style={styles.deleteButtonText}>
+            {Strings.delete}
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -797,6 +904,22 @@ const styles = StyleSheet.create({
     color: ArthaColors.primaryDark,
     flex: 1,
   },
+  categoryRowActions: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+  },
+  budgetButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 4,
+    backgroundColor: ArthaColors.primaryAccent,
+  },
+  budgetButtonText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: ArthaColors.white,
+  },
   deleteButton: {
     paddingVertical: 4,
     paddingHorizontal: 8,
@@ -833,6 +956,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: ArthaColors.gray600,
   },
+  budgetActions: {
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "center",
+  },
+  budgetActionButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 4,
+    justifyContent: "center",
+    alignItems: "center",
+    minWidth: 36,
+  },
+  editBudgetButton: {
+    backgroundColor: ArthaColors.primaryAccent,
+  },
+  deleteBudgetButton: {
+    backgroundColor: ArthaColors.error,
+  },
+  budgetActionButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ArthaColors.white,
+  },
+  noBudgetBox: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: "#FFF8F0",
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: ArthaColors.primaryAccent,
+    marginBottom: 12,
+  },
+  noBudgetText: {
+    fontSize: 12,
+    color: ArthaColors.gray700,
+    lineHeight: 16,
+  },
+  budgetSectionSubtitle: {
+    fontSize: 12,
+    color: ArthaColors.gray500,
+    fontWeight: "500",
+  },
   pickerContainer: {
     borderWidth: 1,
     borderColor: ArthaColors.gray300,
@@ -851,6 +1017,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: ArthaColors.white,
+  },
+  biometricToggleButton: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: ArthaColors.gray50,
+    borderWidth: 1,
+    borderColor: ArthaColors.gray300,
+  },
+  biometricToggleButtonActive: {
+    borderColor: ArthaColors.primaryAccent,
+    backgroundColor: ArthaColors.white,
+  },
+  biometricToggleContent: {
+    flex: 1,
+  },
+  biometricToggleMainText: {
+    color: ArthaColors.primaryDark,
+  },
+  biometricToggleStatus: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginLeft: 8,
   },
   aboutContent: {
     backgroundColor: ArthaColors.gray100,

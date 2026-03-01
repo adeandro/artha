@@ -13,11 +13,15 @@ import {
   Alert,
   DatePickerAndroid,
   DatePickerIOS,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 
@@ -185,17 +189,28 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
-      <ThemedView style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>
-            {currentLimit ? Strings.editBudget : Strings.setBudget}
-          </ThemedText>
-          <ThemedText style={styles.subtitle}>{categoryName}</ThemedText>
-        </View>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
+        keyboardVerticalOffset={0}
+      >
+        <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+          <ThemedView style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <ThemedText style={styles.title}>
+                {currentLimit ? Strings.editBudget : Strings.setBudget}
+              </ThemedText>
+              <ThemedText style={styles.subtitle}>{categoryName}</ThemedText>
+            </View>
 
-        {/* Content */}
-        <View style={styles.content}>
+            {/* Scrollable Content */}
+            <ScrollView 
+              style={styles.contentScroll}
+              contentContainerStyle={styles.contentContainer}
+              showsVerticalScrollIndicator={true}
+              scrollEnabled={true}
+            >
           <ThemedText style={styles.label}>{Strings.budgetLimit}</ThemedText>
 
           {/* Input */}
@@ -338,42 +353,47 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
               />
             </View>
           )}
-        </View>
 
-        {/* Actions */}
-        <View style={styles.actions}>
-          {currentLimit && onDelete && (
-            <TouchableOpacity
-              style={[styles.button, styles.deleteButton]}
-              onPress={handleDelete}
-            >
-              <ThemedText style={styles.deleteButtonText}>
-                {Strings.deleteBudget}
-              </ThemedText>
-            </TouchableOpacity>
-          )}
+              {/* Bottom Spacer - Prevents last input from being hidden by keyboard */}
+              <View style={styles.keyboardSpacer} />
+            </ScrollView>
 
-          <View style={styles.bottomButtons}>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
-              onPress={onCancel}
-            >
-              <ThemedText style={styles.cancelButtonText}>
-                {Strings.cancel}
-              </ThemedText>
-            </TouchableOpacity>
+            {/* Actions */}
+            <View style={styles.actions}>
+              {currentLimit && onDelete && (
+                <TouchableOpacity
+                  style={[styles.button, styles.deleteButton]}
+                  onPress={handleDelete}
+                >
+                  <ThemedText style={styles.deleteButtonText}>
+                    {Strings.deleteBudget}
+                  </ThemedText>
+                </TouchableOpacity>
+              )}
 
-            <TouchableOpacity
-              style={[styles.button, styles.saveButton]}
-              onPress={handleSave}
-            >
-              <ThemedText style={styles.saveButtonText}>
-                {Strings.save}
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ThemedView>
+              <View style={styles.bottomButtons}>
+                <TouchableOpacity
+                  style={[styles.button, styles.cancelButton]}
+                  onPress={onCancel}
+                >
+                  <ThemedText style={styles.cancelButtonText}>
+                    {Strings.cancel}
+                  </ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.button, styles.saveButton]}
+                  onPress={handleSave}
+                >
+                  <ThemedText style={styles.saveButtonText}>
+                    {Strings.save}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ThemedView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -399,11 +419,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: ArthaColors.gray500,
   },
-  content: {
+  contentScroll: {
+    flex: 1,
+    backgroundColor: ArthaColors.white,
+  },
+  contentContainer: {
     paddingHorizontal: 20,
     paddingVertical: 24,
-    backgroundColor: ArthaColors.white,
-    maxHeight: "80%",
   },
   label: {
     fontSize: 12,
@@ -592,5 +614,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: ArthaColors.white,
+  },
+  keyboardSpacer: {
+    height: 40,
   },
 });

@@ -1,8 +1,9 @@
 /**
- * Authentication context for PIN verification
+ * Authentication context for PIN verification and biometric authentication
  */
 
 import { usePinStorage } from "@/hooks/storage/useStorage";
+import { authenticateWithBiometric } from "@/lib/biometric";
 import { getDefaultPinHash, verifyPin } from "@/lib/crypto";
 import React, {
   createContext,
@@ -16,6 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isPinSetup: boolean;
   login: (pin: string) => Promise<boolean>;
+  loginWithBiometric: (reason?: string) => Promise<boolean>;
   setPin: (newPin: string) => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
@@ -72,11 +74,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         const isValid = verifyPin(pin, pinHash);
         if (isValid) {
-          // Add small delay to ensure state is stable before navigation
-          await new Promise((resolve) => setTimeout(resolve, 50));
-          setIsAuthenticated(true);
           if (__DEV__)
-            console.log("[AuthContext] Login successful - state updated");
+            console.log(
+              "[AuthContext] PIN verified - setting authenticated state",
+            );
+          setIsAuthenticated(true);
+
+          // Wait for state to propagate through React's render cycle
+          // This prevents black screen in production builds by ensuring
+          // the layout has time to switch from PIN screen to tabs
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
+          if (__DEV__)
+            console.log(
+              "[AuthContext] State stabilized - ready for navigation",
+            );
         } else {
           if (__DEV__) console.log("[AuthContext] Invalid PIN");
         }
@@ -87,6 +99,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     },
     [pinHash],
+  );
+
+  const loginWithBiometric = useCallback(
+    async (reason?: string): Promise<boolean> => {
+      try {
+        if (__DEV__) console.log("[AuthContext] Attempting biometric login...");
+        const displayReason = reason || "Autentikasi untuk mengakses Artha";
+        const isValid = await authenticateWithBiometric(displayReason);
+
+        if (isValid) {
+          if (__DEV__)
+            console.log(
+              "[AuthContext] Biometric verified - setting authenticated state",
+            );
+          setIsAuthenticated(true);
+
+          // Wait for state to propagate through React's render cycle
+          // This prevents black screen in production builds by ensuring
+          // the layout has time to switch from PIN screen to tabs
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
+          if (__DEV__)
+            console.log(
+              "[AuthContext] State stabilized - ready for navigation",
+            );
+        } else {
+          if (__DEV__)
+            console.log(
+              "[AuthContext] Biometric authentication failed or cancelled",
+            );
+        }
+        return isValid;
+      } catch (e) {
+        console.error("[AuthContext] Biometric login error:", e);
+        return false;
+      }
+    },
+    [],
   );
 
   const setPin = useCallback(
@@ -119,7 +169,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <AuthContext.Provider
-      value={{ isAuthenticated, isPinSetup, login, setPin, logout, isLoading }}
+      value={{
+        isAuthenticated,
+        isPinSetup,
+        login,
+        loginWithBiometric,
+        setPin,
+        logout,
+        isLoading,
+      }}
     >
       {children}
     </AuthContext.Provider>

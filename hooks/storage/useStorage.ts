@@ -2,7 +2,7 @@
  * AsyncStorage hooks for Artha
  */
 
-import { Budget, Category, Transaction } from "@/lib/types";
+import { Budget, Category, Dashboard, Transaction } from "@/lib/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useState } from "react";
@@ -13,6 +13,8 @@ const KEYS = {
   PIN_HASH: "artha_pin_hash",
   PIN_SET: "artha_pin_set",
   BUDGETS: "artha_budgets",
+  BIOMETRIC_ENABLED: "artha_biometric_enabled",
+  DASHBOARDS: "artha_dashboards",
 };
 
 // ============= Transactions =============
@@ -303,5 +305,154 @@ export const useBudgets = () => {
     updateBudget,
     deleteBudget,
     getBudgetForCategory,
+  };
+};
+
+// ============= Biometric Preference =============
+
+export const useBiometricStorage = () => {
+  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const loadBiometricPreference = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem(KEYS.BIOMETRIC_ENABLED);
+      setIsBiometricEnabled(stored === "true");
+    } catch (e) {
+      console.error("Failed to load biometric preference", e);
+      setIsBiometricEnabled(false);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load on mount
+  useEffect(() => {
+    loadBiometricPreference();
+  }, [loadBiometricPreference]);
+
+  // Refresh on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      loadBiometricPreference();
+    }, [loadBiometricPreference]),
+  );
+
+  const setBiometricEnabled = useCallback(async (enabled: boolean) => {
+    try {
+      await AsyncStorage.setItem(
+        KEYS.BIOMETRIC_ENABLED,
+        enabled ? "true" : "false",
+      );
+      setIsBiometricEnabled(enabled);
+    } catch (e) {
+      console.error("Failed to save biometric preference", e);
+    }
+  }, []);
+
+  return {
+    isBiometricEnabled,
+    loading,
+    setBiometricEnabled,
+  };
+};
+
+// ============= Dashboards =============
+
+export const useDashboards = () => {
+  const [dashboards, setDashboards] = useState<Dashboard[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const defaultDashboards: Dashboard[] = [
+    {
+      id: "default",
+      name: "Buku Utama",
+      createdAt: new Date().toISOString(),
+      isDefault: true,
+    },
+  ];
+
+  const loadDashboards = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem(KEYS.DASHBOARDS);
+      if (stored) {
+        setDashboards(JSON.parse(stored));
+      } else {
+        await AsyncStorage.setItem(
+          KEYS.DASHBOARDS,
+          JSON.stringify(defaultDashboards),
+        );
+        setDashboards(defaultDashboards);
+      }
+    } catch (e) {
+      console.error("Failed to load dashboards", e);
+      setDashboards(defaultDashboards);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDashboards();
+  }, [loadDashboards]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboards();
+    }, [loadDashboards]),
+  );
+
+  const saveDashboards = useCallback(async (dash: Dashboard[]) => {
+    try {
+      await AsyncStorage.setItem(KEYS.DASHBOARDS, JSON.stringify(dash));
+      setDashboards(dash);
+    } catch (e) {
+      console.error("Failed to save dashboards", e);
+    }
+  }, []);
+
+  const addDashboard = useCallback(
+    async (name: string) => {
+      const newDashboard: Dashboard = {
+        id: Date.now().toString(),
+        name,
+        createdAt: new Date().toISOString(),
+      };
+      const updated = [...dashboards, newDashboard];
+      await saveDashboards(updated);
+      return newDashboard;
+    },
+    [dashboards, saveDashboards],
+  );
+
+  const deleteDashboard = useCallback(
+    async (id: string) => {
+      // Don't delete the last dashboard
+      if (dashboards.length <= 1) return false;
+      
+      const updated = dashboards.filter((d) => d.id !== id);
+      await saveDashboards(updated);
+      return true;
+    },
+    [dashboards, saveDashboards],
+  );
+
+  const updateDashboard = useCallback(
+    async (id: string, newName: string) => {
+      const updated = dashboards.map((d) =>
+        d.id === id ? { ...d, name: newName } : d,
+      );
+      await saveDashboards(updated);
+      return true;
+    },
+    [dashboards, saveDashboards],
+  );
+
+  return {
+    dashboards,
+    loading,
+    addDashboard,
+    deleteDashboard,
+    updateDashboard,
   };
 };
