@@ -97,37 +97,47 @@ export const useCategories = () => {
   const [loading, setLoading] = useState(true);
 
   // Default categories in Bahasa Indonesia
-  const defaultCategories: Category[] = [
-    { id: "salary", name: "Gaji", type: "income" },
-    { id: "bonus", name: "Bonus", type: "income" },
-    { id: "other_income", name: "Lainnya", type: "income" },
+  const getDefaultCategories = (dashboardId: string = "default"): Category[] => {
+    const ts = Date.now();
+    return [
+      { id: `salary_${ts}`, name: "Gaji", type: "income", dashboardId },
+      { id: `bonus_${ts}`, name: "Bonus", type: "income", dashboardId },
+      { id: `other_inc_${ts}`, name: "Lainnya", type: "income", dashboardId },
 
-    { id: "food", name: "Makanan", type: "expense" },
-    { id: "transport", name: "Transportasi", type: "expense" },
-    { id: "utilities", name: "Utilitas", type: "expense" },
-    { id: "entertainment", name: "Hiburan", type: "expense" },
-    { id: "healthcare", name: "Kesehatan", type: "expense" },
-    { id: "education", name: "Pendidikan", type: "expense" },
-    { id: "shopping", name: "Belanja", type: "expense" },
-    { id: "other_expense", name: "Lainnya", type: "expense" },
-  ];
+      { id: `food_${ts}`, name: "Makanan", type: "expense", dashboardId },
+      { id: `transport_${ts}`, name: "Transportasi", type: "expense", dashboardId },
+      { id: `util_${ts}`, name: "Utilitas", type: "expense", dashboardId },
+      { id: `ent_${ts}`, name: "Hiburan", type: "expense", dashboardId },
+      { id: `health_${ts}`, name: "Kesehatan", type: "expense", dashboardId },
+      { id: `edu_${ts}`, name: "Pendidikan", type: "expense", dashboardId },
+      { id: `shop_${ts}`, name: "Belanja", type: "expense", dashboardId },
+      { id: `other_exp_${ts}`, name: "Lainnya", type: "expense", dashboardId },
+    ];
+  };
 
   const loadCategories = useCallback(async () => {
     try {
       const stored = await AsyncStorage.getItem(KEYS.CATEGORIES);
       if (stored) {
-        setCategories(JSON.parse(stored));
+        const parsed: Category[] = JSON.parse(stored);
+        // Backward compatibility: missing dashboardId gets "default"
+        const migrated = parsed.map(c => ({
+          ...c,
+          dashboardId: c.dashboardId || "default"
+        }));
+        setCategories(migrated);
       } else {
-        // Initialize with default categories
+        // Initialize with default categories for main book
+        const initial = getDefaultCategories("default");
         await AsyncStorage.setItem(
           KEYS.CATEGORIES,
-          JSON.stringify(defaultCategories),
+          JSON.stringify(initial),
         );
-        setCategories(defaultCategories);
+        setCategories(initial);
       }
     } catch (e) {
       console.error("Failed to load categories", e);
-      setCategories(defaultCategories);
+      setCategories(getDefaultCategories("default"));
     } finally {
       setLoading(false);
     }
@@ -180,12 +190,22 @@ export const useCategories = () => {
     [categories, saveCategories],
   );
 
+  const seedCategoriesForDashboard = useCallback(
+    async (dashboardId: string) => {
+      const newCats = getDefaultCategories(dashboardId);
+      const updated = [...categories, ...newCats];
+      await saveCategories(updated);
+    },
+    [categories, saveCategories]
+  );
+
   return {
     categories,
     loading,
     addCategory,
     updateCategory,
     deleteCategory,
+    seedCategoriesForDashboard,
   };
 };
 

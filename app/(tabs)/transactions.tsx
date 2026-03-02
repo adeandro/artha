@@ -53,12 +53,22 @@ export const TransactionsScreen = () => {
 
     // Apply custom date range if provided
     if (filters.startDate && filters.endDate) {
-      filtered = filtered.filter(
-        (t) => t.date >= filters.startDate! && t.date <= filters.endDate!,
-      );
+      const s = new Date(filters.startDate + "T00:00:00").getTime();
+      const e = new Date(filters.endDate + "T23:59:59").getTime();
+      if (__DEV__) console.log("[DATE FILTER] Custom Start:", new Date(s).toISOString(), "End:", new Date(e).toISOString());
+      filtered = filtered.filter((t) => {
+        const d = new Date(t.date.includes("T") ? t.date : t.date + "T00:00:00").getTime();
+        return d >= s && d <= e;
+      });
     } else {
       // Otherwise use month filter
-      filtered = filtered.filter((t) => t.date >= start && t.date <= end);
+      const s = new Date(start + "T00:00:00").getTime();
+      const e = new Date(end + "T23:59:59").getTime();
+      if (__DEV__) console.log("[DATE FILTER] Month Start:", new Date(s).toISOString(), "End:", new Date(e).toISOString());
+      filtered = filtered.filter((t) => {
+        const d = new Date(t.date.includes("T") ? t.date : t.date + "T00:00:00").getTime();
+        return d >= s && d <= e;
+      });
     }
 
     // Apply search filter
@@ -78,10 +88,11 @@ export const TransactionsScreen = () => {
 
     const groups: Record<string, Transaction[]> = {};
     sorted.forEach((txn) => {
-      if (!groups[txn.date]) {
-        groups[txn.date] = [];
+      const dateKey = txn.date.split("T")[0];
+      if (!groups[dateKey]) {
+        groups[dateKey] = [];
       }
-      groups[txn.date].push(txn);
+      groups[dateKey].push(txn);
     });
 
     return Object.entries(groups)

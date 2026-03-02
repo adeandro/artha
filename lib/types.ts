@@ -25,6 +25,7 @@ export interface Category {
   id: string;
   name: string;
   type: TransactionType;
+  dashboardId?: string;
 }
 
 export interface MonthlyStats {

@@ -58,16 +58,15 @@ const DashboardScreenComponent = () => {
       .reduce((sum, t) => sum + t.amount, 0);
 
     // 3. Month specific stats for charts and recent list
-    const monthTransactions = dashboardTransactions.filter(
-      (t) => t.date >= start && t.date <= end,
-    );
+    // (User requested Cumulative Charts, so we use dashboardTransactions instead)
+    const chartTransactions = dashboardTransactions;
 
     // Get top 3 expense categories
     const expenseCategoryTotals: Record<
       string,
       { name: string; amount: number }
     > = {};
-    monthTransactions
+    chartTransactions
       .filter((t) => t.type === "expense")
       .forEach((t) => {
         const categoryName =
@@ -87,7 +86,7 @@ const DashboardScreenComponent = () => {
       string,
       { name: string; amount: number }
     > = {};
-    monthTransactions
+    chartTransactions
       .filter((t) => t.type === "income")
       .forEach((t) => {
         const categoryName =
