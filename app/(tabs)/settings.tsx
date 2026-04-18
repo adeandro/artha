@@ -12,6 +12,7 @@ import {
   useBiometricStorage,
   useBudgets,
   useCategories,
+  useDashboards,
   useTransactions,
 } from "@/hooks/storage/useStorage";
 import { useBiometric } from "@/hooks/useBiometric";
@@ -42,6 +43,7 @@ export const SettingsScreen = () => {
   const { categories, addCategory, deleteCategory } = useCategories();
   const { transactions, addTransaction } = useTransactions();
   const { budgets, addBudget, deleteBudget } = useBudgets();
+  const { dashboards } = useDashboards();
   const { logout } = useAuth();
   const { isBiometricEnabled, setBiometricEnabled } = useBiometricStorage();
   const { isSupported, displayName } = useBiometric();
@@ -166,8 +168,14 @@ export const SettingsScreen = () => {
         categoryMap[cat.id] = cat.name;
       });
 
-      await exportTransactionsToExcel(transactions, categoryMap);
-      Alert.alert("Sukses", Strings.exportSuccess);
+      // Pass dashboards untuk multi-dashboard export support
+      await exportTransactionsToExcel(transactions, categoryMap, dashboards);
+      Alert.alert(
+        "Sukses",
+        dashboards.length > 1
+          ? `Berhasil export ${dashboards.length} buku keuangan`
+          : Strings.exportSuccess,
+      );
     } catch (error) {
       Alert.alert("Error", Strings.exportFailed);
       console.error("Export failed:", error);
@@ -279,10 +287,7 @@ export const SettingsScreen = () => {
             >
               <View style={styles.biometricToggleContent}>
                 <ThemedText
-                  style={[
-                    styles.buttonText,
-                    styles.biometricToggleMainText,
-                  ]}
+                  style={[styles.buttonText, styles.biometricToggleMainText]}
                 >
                   {isBiometricEnabled ? "✓ " : "○ "}
                   {displayName === "Face ID"
@@ -372,11 +377,13 @@ export const SettingsScreen = () => {
                   b.month === getCurrentMonth().month,
               ).length === 0
                 ? "Belum ada"
-                : `${budgets.filter(
-                    (b) =>
-                      b.year === getCurrentMonth().year &&
-                      b.month === getCurrentMonth().month,
-                  ).length} aktif`}
+                : `${
+                    budgets.filter(
+                      (b) =>
+                        b.year === getCurrentMonth().year &&
+                        b.month === getCurrentMonth().month,
+                    ).length
+                  } aktif`}
             </ThemedText>
           </View>
 
@@ -388,7 +395,8 @@ export const SettingsScreen = () => {
           ).length === 0 ? (
             <View style={styles.noBudgetBox}>
               <ThemedText style={styles.noBudgetText}>
-                Belum ada budget. Klik tombol &quot;Budget&quot; di kategori pengeluaran untuk memulai.
+                Belum ada budget. Klik tombol &quot;Budget&quot; di kategori
+                pengeluaran untuk memulai.
               </ThemedText>
             </View>
           ) : null}
@@ -416,16 +424,24 @@ export const SettingsScreen = () => {
                   </View>
                   <View style={styles.budgetActions}>
                     <TouchableOpacity
-                      style={[styles.budgetActionButton, styles.editBudgetButton]}
+                      style={[
+                        styles.budgetActionButton,
+                        styles.editBudgetButton,
+                      ]}
                       onPress={() => {
                         setSelectedCategoryForBudget(budget.categoryId);
                         setShowAddBudgetModal(true);
                       }}
                     >
-                      <ThemedText style={styles.budgetActionButtonText}>✏️</ThemedText>
+                      <ThemedText style={styles.budgetActionButtonText}>
+                        ✏️
+                      </ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={[styles.budgetActionButton, styles.deleteBudgetButton]}
+                      style={[
+                        styles.budgetActionButton,
+                        styles.deleteBudgetButton,
+                      ]}
                       onPress={() => {
                         Alert.alert(
                           "Hapus Budget",
@@ -441,7 +457,9 @@ export const SettingsScreen = () => {
                         );
                       }}
                     >
-                      <ThemedText style={styles.budgetActionButtonText}>✕</ThemedText>
+                      <ThemedText style={styles.budgetActionButtonText}>
+                        ✕
+                      </ThemedText>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -519,7 +537,7 @@ export const SettingsScreen = () => {
           </ThemedText>
           <View style={styles.aboutContent}>
             <ThemedText style={styles.aboutLabel}>{Strings.appName}</ThemedText>
-            <ThemedText style={styles.aboutText}>v1.5.5</ThemedText>
+            <ThemedText style={styles.aboutText}>v1.3.2</ThemedText>
             <ThemedText style={[styles.aboutLabel, { marginTop: 12 }]}>
               Author
             </ThemedText>
@@ -653,7 +671,11 @@ interface CategoryRowProps {
   onSetBudget?: () => void;
 }
 
-const CategoryRow: React.FC<CategoryRowProps> = ({ category, onDelete, onSetBudget }) => {
+const CategoryRow: React.FC<CategoryRowProps> = ({
+  category,
+  onDelete,
+  onSetBudget,
+}) => {
   return (
     <View style={styles.categoryRow}>
       <ThemedText style={styles.categoryRowName}>{category.name}</ThemedText>

@@ -3,6 +3,7 @@
 ## Pre-Release Checklist (48 Hours Before)
 
 ### Environment Setup
+
 ```bash
 # Verify Node.js version
 node --version  # Should be 18.17.0 or higher
@@ -16,6 +17,7 @@ eas login
 ```
 
 ### Code Verification
+
 ```bash
 cd /c/development/Artha
 
@@ -29,6 +31,7 @@ npm ci
 ```
 
 ### Version & Changelog
+
 - ✅ Version in `app.json`: **1.0.0**
 - ✅ Version in `package.json`: **1.0.0**
 - ✅ EAS Project ID: **acef04c8-4a9a-4785-8e21-560d1db00fb0**
@@ -38,6 +41,7 @@ npm ci
 ## iOS Build & Release
 
 ### Step 1: Build on EAS
+
 ```bash
 # Command
 eas build --platform ios --profile production
@@ -50,6 +54,7 @@ eas build --platform ios --profile production
 ```
 
 ### Step 2: Download & Test
+
 ```bash
 # You'll receive download link via email
 # Download the .ipa file
@@ -59,6 +64,7 @@ eas build --platform ios --profile production
 ```
 
 ### Step 3: Manual Testing (30 mins)
+
 - [ ] Fresh install → Shows PIN setup screen
 - [ ] Create PIN (6 digits) → Auto-login to dashboard
 - [ ] Close app → Reopen → Shows login screen
@@ -73,6 +79,7 @@ eas build --platform ios --profile production
 - [ ] Change PIN → Old PIN doesn't work, new PIN works
 
 ### Step 4: Submit to TestFlight
+
 ```bash
 # Install Apple Transporter
 # Sign in with Apple ID
@@ -82,6 +89,7 @@ eas build --platform ios --profile production
 ```
 
 ### Step 5: Submit to App Store
+
 ```bash
 # Once TestFlight passes internal testing:
 # 1. Add screenshots (5-7 per iPhone size)
@@ -97,6 +105,7 @@ eas build --platform ios --profile production
 ## Android Build & Release
 
 ### Step 1: Build on EAS
+
 ```bash
 # Command
 eas build --platform android --profile production
@@ -109,6 +118,7 @@ eas build --platform android --profile production
 ```
 
 ### Step 2: Download & Test
+
 ```bash
 # You'll receive download link via email
 # Download the .aab file
@@ -119,6 +129,7 @@ eas build --platform android --profile production
 ```
 
 ### Step 3: Manual Testing (30 mins)
+
 - [ ] Fresh install → Shows PIN setup screen
 - [ ] Create PIN (6 digits) → Auto-login to dashboard
 - [ ] Close app → Reopen → Shows login screen
@@ -133,6 +144,7 @@ eas build --platform android --profile production
 - [ ] Change PIN → Old PIN doesn't work, new PIN works
 
 ### Step 4: Submit to Google Play
+
 ```bash
 # Go to Google Play Console
 # 1. Create app → "Artha"
@@ -152,6 +164,7 @@ eas build --platform android --profile production
 ## Web Deployment (Optional)
 
 ### Build & Deploy
+
 ```bash
 # Build static site
 npm run web
@@ -179,6 +192,7 @@ npm run web
 ## Post-Release Operations
 
 ### Day 1-7: Monitor
+
 ```
 ✅ Crash Reports (via Sentry or Play Console)
 ✅ Performance Metrics (startup time, memory)
@@ -187,6 +201,7 @@ npm run web
 ```
 
 ### Day 7-30: Collect Feedback
+
 - [ ] Read ALL 5-star reviews → Feature requests?
 - [ ] Read 3-4 star reviews → Bug reports?
 - [ ] Monitor crash rate (target < 0.1%)
@@ -194,6 +209,7 @@ npm run web
 - [ ] Respond to negative reviews with fixes
 
 ### Bug Fix Release Cycle
+
 ```
 1. Identify bug from user reports
 2. Create git branch: git checkout -b bugfix/issue-name
@@ -212,6 +228,7 @@ npm run web
 ## Troubleshooting Common Issues
 
 ### Issue: Build Fails with "Module not found"
+
 ```
 Solution:
 1. npm ci (clean install)
@@ -219,6 +236,7 @@ Solution:
 ```
 
 ### Issue: App Crashes on Startup
+
 ```
 Solution:
 1. Check console logs in TestFlight (iOS) or Play Console (Android)
@@ -228,6 +246,7 @@ Solution:
 ```
 
 ### Issue: Biometric Not Working
+
 ```
 Solution:
 1. Ensure device has fingerprint/Face ID enrolled
@@ -237,6 +256,7 @@ Solution:
 ```
 
 ### Issue: Data Not Persisting
+
 ```
 Solution:
 1. Check AsyncStorage keys match (artha_*)
@@ -246,6 +266,7 @@ Solution:
 ```
 
 ### Issue: Excel Export Not Working
+
 ```
 Solution:
 1. Check file storage permissions
@@ -259,6 +280,7 @@ Solution:
 ## Production Monitoring Dashboard
 
 ### Metrics to Track
+
 ```
 Daily:
 - Crash rate (target: < 0.1%)
@@ -280,6 +302,7 @@ Monthly:
 ```
 
 ### Tools to Use
+
 ```
 iOS:
 - TestFlight crash reports
@@ -341,6 +364,7 @@ Thank you for choosing Artha!
 ## Emergency Rollback Plan
 
 ### If Critical Bug Discovered
+
 ```bash
 1. STOP: Don't submit more builds
 
@@ -375,17 +399,20 @@ Thank you for choosing Artha!
 ## Success Criteria
 
 ### Launch Success (Immediate)
+
 - ✅ 0 crashes in first 100 downloads
 - ✅ 4.5+ rating in first week
 - ✅ 100+ users in first month
 
 ### Growth Goals (3 Months)
+
 - ✅ 1000+ users
 - ✅ 4.8+ rating
 - ✅ < 0.1% crash rate
 - ✅ 50% user retention (Day 30)
 
 ### Expansion Plans (6 Months)
+
 - [ ] Add recurring transactions
 - [ ] Add budget notifications
 - [ ] Add spending trends chart
@@ -397,4 +424,3 @@ Thank you for choosing Artha!
 **Status**: ✅ READY FOR PRODUCTION RELEASE  
 **Last Updated**: 2026-02-18  
 **Next Steps**: Execute iOS build, TestFlight, App Store submission
-

@@ -6,7 +6,6 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
 export default function TabLayout() {
-
   return (
     <Tabs
       screenOptions={{

@@ -3,16 +3,18 @@
 **Status**: ✅ IMPLEMENTED & TESTED  
 **Date**: February 18, 2026  
 **Issue**: Blank page/"Ghost Route" blocking Dashboard access after successful auth (PIN/Fingerprint)  
-**Root Cause**: Conditional rendering without explicit navigation replace + missing keyboard dismiss  
+**Root Cause**: Conditional rendering without explicit navigation replace + missing keyboard dismiss
 
 ---
 
 ## Problem Analysis
 
 ### Symptom
+
 After successful PIN or Fingerprint authentication, app shows blank page. Dashboard is behind it (visible when pressing 'Back'), indicating a "Ghost Route" that wasn't properly closed/replaced in navigation stack.
 
 ### Root Causes Identified
+
 1. **Layout uses conditional rendering only** - No explicit `router.replace()` called on auth success
 2. **No keyboard dismissal** - Keyboard lingers in navigation stack, creating invisible layer
 3. **No double-navigation prevention** - Same callback could fire multiple times
@@ -22,7 +24,8 @@ After successful PIN or Fingerprint authentication, app shows blank page. Dashbo
 
 ## Solution Implemented
 
-### 1. **Explicit Navigation Replace with Router** 
+### 1. **Explicit Navigation Replace with Router**
+
 **File**: `app/_layout.tsx`
 
 ```tsx
@@ -36,10 +39,10 @@ function RootLayoutInner() {
   useEffect(() => {
     if (isAuthenticated && !navigationRef.current) {
       navigationRef.current = true;
-      
+
       // Force dismiss keyboard
       Keyboard.dismiss();
-      
+
       // Use replace to clean stack (not push)
       setTimeout(() => {
         router.replace("/(tabs)/dashboard");
@@ -64,12 +67,14 @@ function RootLayoutInner() {
 ```
 
 **Why?**
+
 - `router.replace()` removes PIN screen from stack (can't go back)
 - `Keyboard.dismiss()` removes any invisible keyboard layer
 - `navigationRef` prevents double-navigation if state flips twice
 - `setTimeout(..., 0)` ensures layout has rendered before navigation
 
 ### 2. **Force Keyboard Dismissal in Pin-Entry**
+
 **File**: `components/pin-entry-screen.tsx`
 
 ```tsx
@@ -111,22 +116,27 @@ if (success) {
 ```
 
 **Why?**
+
 - `Keyboard.dismiss()` explicitly closes keyboard before navigation
 - Removes the invisible layer that could block touches
 - Called at **every** auth success point (auto-trigger, auto-submit, manual)
 
 ### 3. **Remove Redundant Delays**
+
 **What was removed**:
+
 - ❌ `await new Promise(resolve => setTimeout(resolve, 100))` in PIN login handler
 - ❌ `setIsLoading(true)` state in PIN handler
 - ❌ All other auth success delays
 
 **Why?**
+
 - State propagation is handled by layout's useEffect
 - Extra delays create 100-150ms blank screen
 - Keyboard.dismiss() handles async timing safely
 
 ### 4. **Biometric Support Restored**
+
 **File**: `components/pin-entry-screen.tsx`
 
 ```tsx
@@ -166,6 +176,7 @@ useEffect(() => {
 ## Flow Diagram
 
 ### ❌ BEFORE (Broken)
+
 ```
 User enters PIN → login() called → isAuthenticated=true (in AuthContext)
    ↓
@@ -179,6 +190,7 @@ User enters PIN → login() called → isAuthenticated=true (in AuthContext)
 ```
 
 ### ✅ AFTER (Fixed)
+
 ```
 User enters PIN → login() called → isAuthenticated=true (in AuthContext)
    ↓
@@ -199,12 +211,12 @@ User enters PIN → login() called → isAuthenticated=true (in AuthContext)
 
 ## Files Modified
 
-| File | Changes | Impact |
-|------|---------|--------|
-| `app/_layout.tsx` | Added `router.replace()` logic in useEffect on auth state change | **CRITICAL**: Enables clean navigation replace |
-| `components/pin-entry-screen.tsx` | Added `Keyboard.dismiss()` at all auth success points | **CRITICAL**: Prevents invisible keyboard layer |
-| `components/pin-entry-screen.tsx` | Added biometric auto-trigger useEffect | **IMPORTANT**: Restores fingerprint on launch |
-| `components/pin-entry-screen.tsx` | Removed 100ms delays from auth handlers | **IMPORTANT**: Eliminates blank screen delay |
+| File                              | Changes                                                          | Impact                                          |
+| --------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------- |
+| `app/_layout.tsx`                 | Added `router.replace()` logic in useEffect on auth state change | **CRITICAL**: Enables clean navigation replace  |
+| `components/pin-entry-screen.tsx` | Added `Keyboard.dismiss()` at all auth success points            | **CRITICAL**: Prevents invisible keyboard layer |
+| `components/pin-entry-screen.tsx` | Added biometric auto-trigger useEffect                           | **IMPORTANT**: Restores fingerprint on launch   |
+| `components/pin-entry-screen.tsx` | Removed 100ms delays from auth handlers                          | **IMPORTANT**: Eliminates blank screen delay    |
 
 ---
 
@@ -274,17 +286,18 @@ const navigationRef = useRef<boolean>(false);
 
 // First auth success
 if (isAuthenticated && !navigationRef.current) {
-  navigationRef.current = true;  // ← Flag set
+  navigationRef.current = true; // ← Flag set
   router.replace("/(tabs)/dashboard");
 }
 
 // If state somehow flips again
-if (isAuthenticated && !navigationRef.current) {  // ← Check prevents duplicate
+if (isAuthenticated && !navigationRef.current) {
+  // ← Check prevents duplicate
   // Won't execute (flag already true)
 }
 
 // When returning to PIN screen (logout)
-navigationRef.current = false;  // ← Reset for next cycle
+navigationRef.current = false; // ← Reset for next cycle
 ```
 
 ---
@@ -301,11 +314,12 @@ navigationRef.current = false;  // ← Reset for next cycle
 - State management robust (no double-navigation)
 
 ### Deployment Commands
+
 ```bash
 # Build for iOS
 eas build --platform ios --profile production
 
-# Build for Android  
+# Build for Android
 eas build --platform android --profile production
 
 # Build web
@@ -331,4 +345,3 @@ If blank screen still appears:
 - [Expo Router Documentation](https://docs.expo.dev/router)
 - [React Native Keyboard API](https://reactnative.dev/docs/keyboard)
 - [useRef for mutable refs](https://react.dev/reference/react/useRef)
-

@@ -8,30 +8,27 @@ import { ThemedView } from "@/components/themed-view";
 import { TransactionSearchFilter } from "@/components/transaction-search-filter";
 import { ArthaColors } from "@/constants/colors";
 import { Strings } from "@/constants/strings";
-import { useDashboardContext } from "@/context/DashboardContext";
 import { useTransactions } from "@/hooks/storage/useStorage";
 import { formatCurrency } from "@/lib/currency";
 import {
-    formatDate,
-    getCurrentMonth,
-    getMonthDateRange,
-    getMonthYear,
+  formatDate,
+  getCurrentMonth,
+  getMonthDateRange,
+  getMonthYear,
 } from "@/lib/date";
 import { Transaction } from "@/lib/types";
 import React, { useMemo, useState } from "react";
 import {
-    Alert,
-    SectionList,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Alert,
+  SectionList,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export const TransactionsScreen = () => {
-  const { transactions, loading: txnsLoading, deleteTransaction } = useTransactions();
-  const { activeDashboardId, loading: ctxLoading } = useDashboardContext();
-  const loading = txnsLoading || ctxLoading;
+  const { transactions, loading, deleteTransaction } = useTransactions();
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [filters, setFilters] = useState({
     searchText: "",
@@ -46,29 +43,16 @@ export const TransactionsScreen = () => {
 
   // Apply search and date range filters
   const filteredGroupedTransactions = useMemo(() => {
-    const dashboardTransactions = transactions.filter(
-      (t) => (t.dashboardId || "default") === activeDashboardId
-    );
-    let filtered = dashboardTransactions;
+    let filtered = transactions;
 
     // Apply custom date range if provided
     if (filters.startDate && filters.endDate) {
-      const s = new Date(filters.startDate + "T00:00:00").getTime();
-      const e = new Date(filters.endDate + "T23:59:59").getTime();
-      if (__DEV__) console.log("[DATE FILTER] Custom Start:", new Date(s).toISOString(), "End:", new Date(e).toISOString());
-      filtered = filtered.filter((t) => {
-        const d = new Date(t.date.includes("T") ? t.date : t.date + "T00:00:00").getTime();
-        return d >= s && d <= e;
-      });
+      filtered = filtered.filter(
+        (t) => t.date >= filters.startDate && t.date <= filters.endDate,
+      );
     } else {
       // Otherwise use month filter
-      const s = new Date(start + "T00:00:00").getTime();
-      const e = new Date(end + "T23:59:59").getTime();
-      if (__DEV__) console.log("[DATE FILTER] Month Start:", new Date(s).toISOString(), "End:", new Date(e).toISOString());
-      filtered = filtered.filter((t) => {
-        const d = new Date(t.date.includes("T") ? t.date : t.date + "T00:00:00").getTime();
-        return d >= s && d <= e;
-      });
+      filtered = filtered.filter((t) => t.date >= start && t.date <= end);
     }
 
     // Apply search filter
@@ -88,11 +72,10 @@ export const TransactionsScreen = () => {
 
     const groups: Record<string, Transaction[]> = {};
     sorted.forEach((txn) => {
-      const dateKey = txn.date.split("T")[0];
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
+      if (!groups[txn.date]) {
+        groups[txn.date] = [];
       }
-      groups[dateKey].push(txn);
+      groups[txn.date].push(txn);
     });
 
     return Object.entries(groups)
@@ -104,7 +87,7 @@ export const TransactionsScreen = () => {
         title: formatDate(date),
         data: txns,
       }));
-  }, [transactions, start, end, filters, activeDashboardId]);
+  }, [transactions, start, end, filters]);
 
   const handleDelete = async (id: string) => {
     Alert.alert(Strings.deleteCategory, Strings.confirmDelete, [

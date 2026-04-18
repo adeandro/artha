@@ -1,12 +1,11 @@
 import { PinEntryScreen } from "@/components/pin-entry-screen";
 import { ArthaColors } from "@/constants/colors";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
-import { DashboardProvider } from "@/context/DashboardContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
-    DarkTheme,
-    DefaultTheme,
-    ThemeProvider,
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
 } from "@react-navigation/native";
 import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -39,10 +38,10 @@ function RootLayoutInner() {
     if (isAuthenticated && !navigationRef.current) {
       navigationRef.current = true;
       if (__DEV__) console.log("[AUTH-LAYOUT] Authenticated - replacing route");
-      
+
       // Dismiss keyboard before navigation
       Keyboard.dismiss();
-      
+
       // Use replace to remove PIN screen from stack
       setTimeout(() => {
         router.replace("/(tabs)/dashboard");
@@ -129,13 +128,6 @@ function RootLayoutInner() {
             title: "Tambah Transaksi",
           }}
         />
-        <Stack.Screen
-          name="manage-dashboards"
-          options={{
-            presentation: "modal",
-            title: "Kelola Buku Keuangan",
-          }}
-        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
@@ -148,9 +140,7 @@ const MemoizedRootLayoutInner = React.memo(RootLayoutInner);
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <DashboardProvider>
-        <MemoizedRootLayoutInner />
-      </DashboardProvider>
+      <MemoizedRootLayoutInner />
     </AuthProvider>
   );
 }

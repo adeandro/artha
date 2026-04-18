@@ -11,7 +11,13 @@ import { useAuth } from "@/context/AuthContext";
 import { useBiometricStorage } from "@/hooks/storage/useStorage";
 import { useBiometric } from "@/hooks/useBiometric";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Keyboard, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  Keyboard,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 interface PinEntryScreenProps {
@@ -110,7 +116,8 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
       }
 
       if (success) {
-        if (__DEV__) console.log("[PIN] PIN valid - dismissing keyboard and redirecting");
+        if (__DEV__)
+          console.log("[PIN] PIN valid - dismissing keyboard and redirecting");
         // Force dismiss keyboard before navigation
         Keyboard.dismiss();
         setPin("");
@@ -208,7 +215,10 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
     } catch (error) {
       console.error("[PIN] Biometric error:", error);
       if (isMountedRef.current) {
-        Alert.alert("Error", "Gagal melakukan autentikasi biometrik. Silakan coba lagi.");
+        Alert.alert(
+          "Error",
+          "Gagal melakukan autentikasi biometrik. Silakan coba lagi.",
+        );
         setIsLoading(false);
       }
     }
@@ -370,17 +380,20 @@ export const PinEntryScreen: React.FC<PinEntryScreenProps> = ({
         </View>
 
         {/* Biometric Button - Only for Login Mode AND when Enabled */}
-        {mode === "login" && isSupported && isBiometricEnabled && !isLoading && (
-          <View style={styles.biometricSection}>
-            <TouchableOpacity
-              style={styles.biometricIconButton}
-              onPress={handleBiometricPress}
-              disabled={isLoading}
-            >
-              <ThemedText style={styles.biometricIcon}>⊙</ThemedText>
-            </TouchableOpacity>
-          </View>
-        )}
+        {mode === "login" &&
+          isSupported &&
+          isBiometricEnabled &&
+          !isLoading && (
+            <View style={styles.biometricSection}>
+              <TouchableOpacity
+                style={styles.biometricIconButton}
+                onPress={handleBiometricPress}
+                disabled={isLoading}
+              >
+                <ThemedText style={styles.biometricIcon}>⊙</ThemedText>
+              </TouchableOpacity>
+            </View>
+          )}
 
         {/* Status Message for Login Mode */}
         {mode === "login" && pin.length === 6 && (

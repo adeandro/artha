@@ -1,6 +1,7 @@
 /**
  * Excel Export Utility
  * Mengkonversi data transaksi ke format Excel (.xlsx) dan share ke user
+ * Support multiple financial books (dashboards)
  */
 
 // @ts-ignore - Using legacy API to avoid deprecation warnings
@@ -10,7 +11,7 @@ import * as Sharing from "expo-sharing";
 // @ts-ignore - xlsx doesn't have full TypeScript support but works fine at runtime
 import XLSX, { WorkBook, WorkSheet } from "xlsx";
 import { formatCurrency } from "./currency";
-import { Transaction } from "./types";
+import { Dashboard, Transaction } from "./types";
 
 /**
  * Format data untuk spreadsheet
@@ -24,104 +25,239 @@ interface ExcelTransactionRow {
 }
 
 /**
- * Export transaksi ke file Excel (.xlsx) dan trigger sharing
+ * Export transaksi dari satu dashboard ke file Excel (.xlsx)
  * @param transactions - Array data transaksi dari AsyncStorage
- * @param categoryMap - Object mapping category ID ke nama (opsional, fallback ke ID jika tidak ada)
- * @returns Promise<boolean> - True jika berhasil, throw error jika gagal
+ * @param categoryMap - Object mapping category ID ke nama
+ * @param dashboardName - Nama buku keuangan (untuk filename)
+ * @returns Promise<string> - Path file yang berhasil dibuat
+ */
+const exportSingleDashboard = async (
+  transactions: Transaction[],
+  categoryMap: Record<string, string> = {},
+  dashboardName: string = "Laporan",
+): Promise<string> => {
+  if (!transactions || transactions.length === 0) {
+    throw new Error(`Tidak ada data transaksi untuk ${dashboardName}`);
+  }
+
+  // Format data untuk Excel
+  const excelData: ExcelTransactionRow[] = transactions.map((tx) => ({
+    Tanggal: tx.date,
+    Kategori: categoryMap[tx.category] || tx.category,
+    Keterangan: tx.notes || "-",
+    Tipe: tx.type === "income" ? "Pemasukan" : "Pengeluaran",
+    Jumlah: formatCurrency(tx.amount),
+  }));
+
+  // Buat workbook dan worksheet
+  const workbook: WorkBook = XLSX.utils.book_new();
+  const worksheet: WorkSheet = XLSX.utils.json_to_sheet(excelData);
+
+  // Set column widths
+  worksheet["!cols"] = [
+    { wch: 12 }, // Tanggal
+    { wch: 18 }, // Kategori
+    { wch: 25 }, // Keterangan
+    { wch: 12 }, // Tipe
+    { wch: 15 }, // Jumlah
+  ];
+
+  // Add header row dengan info dashboard
+  // Gunakan XLSX.utils.sheet_add_aoa untuk menambah rows custom di atas
+  const now = new Date();
+  const timestamp = `${now.toLocaleString("id-ID")}`;
+
+  // Tambah info header di atas data
+  XLSX.utils.sheet_add_aoa(
+    worksheet,
+    [
+      [`LAPORAN KEUANGAN: ${dashboardName}`],
+      [`Tanggal Cetak: ${timestamp}`],
+      [`Total Transaksi: ${transactions.length}`],
+      [],
+    ],
+    { origin: 0 },
+  );
+
+  // Shift data rows ke bawah header (5 baris: 3 info + 2 blank)
+  const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:E1");
+  range.s.r += 5;
+  range.e.r += 5;
+  worksheet["!ref"] = XLSX.utils.encode_range(range);
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Transaksi");
+
+  // Generate filename dengan nama buku
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  const dateString = `${year}-${month}-${day}`;
+
+  // Replace special characters di nama dashboard untuk filename
+  const safeBookName = dashboardName
+    .replace(/[^a-zA-Z0-9_\-]/g, "_")
+    .substring(0, 20); // Limit to 20 chars
+
+  const fileName = `Laporan_${safeBookName}_${dateString}.xlsx`;
+
+  // Simpan file
+  const docsDir =
+    (FileSystem as any).documentDirectory || (FileSystem as any).cacheDirectory;
+  const filePath = `${docsDir}${fileName}`;
+
+  const wbout = XLSX.write(workbook, {
+    type: "base64",
+    bookType: "xlsx",
+  });
+
+  await FileSystem.writeAsStringAsync(filePath, wbout, {
+    encoding: (FileSystem as any).EncodingType.Base64,
+  });
+
+  return filePath;
+};
+
+/**
+ * Export transaksi ke file Excel - support multiple dashboards
+ * Jika hanya ada 1 dashboard, export langsung
+ * Jika ada multiple dashboards, export terpisah untuk setiap buku
+ *
+ * @param transactions - Array data transaksi dari AsyncStorage
+ * @param categoryMap - Object mapping category ID ke nama
+ * @param dashboards - Array of Dashboard objects (untuk nama dan ID)
+ * @returns Promise<boolean> - True jika berhasil
  *
  * @example
  * const categoryMap = {};
  * categories.forEach(cat => categoryMap[cat.id] = cat.name);
- * await exportTransactionsToExcel(transactions, categoryMap);
+ * await exportTransactionsToExcelMultiDashboard(transactions, categoryMap, dashboards);
  */
 export const exportTransactionsToExcel = async (
   transactions: Transaction[],
   categoryMap: Record<string, string> = {},
+  dashboards?: Dashboard[],
 ): Promise<boolean> => {
   try {
-    // Validasi: pastikan ada data untuk dieksport
+    // Jika ada dashboards, gunakan multi-dashboard export
+    if (dashboards && dashboards.length > 0) {
+      return await exportTransactionsToExcelMultiDashboard(
+        transactions,
+        categoryMap,
+        dashboards,
+      );
+    }
+
+    // Fallback ke single export (backward compatibility)
     if (!transactions || transactions.length === 0) {
       throw new Error("Tidak ada data transaksi untuk dieksport");
     }
 
-    // Step 1: Format data untuk Excel dengan column yang readable
-    const excelData: ExcelTransactionRow[] = transactions.map((tx) => ({
-      Tanggal: tx.date, // Format: YYYY-MM-DD
-      Kategori: categoryMap[tx.category] || tx.category, // Map ID ke nama kategori
-      Keterangan: tx.notes || "-", // Gunakan "-" jika tidak ada notes
-      Tipe: tx.type === "income" ? "Pemasukan" : "Pengeluaran", // Translate ke Bahasa Indonesia
-      Jumlah: formatCurrency(tx.amount), // Format currency dengan IDR
-    }));
+    const filePath = await exportSingleDashboard(
+      transactions,
+      categoryMap,
+      "Laporan Keuangan",
+    );
 
-    // Step 2: Buat workbook dan worksheet baru
-    const workbook: WorkBook = XLSX.utils.book_new();
-    const worksheet: WorkSheet = XLSX.utils.json_to_sheet(excelData);
-
-    // Step 3: Set column widths untuk readability
-    // Width dalam character units (approximate pixel = character * 7)
-    const columnWidths = [
-      { wch: 12 }, // Tanggal (YYYY-MM-DD)
-      { wch: 18 }, // Kategori
-      { wch: 25 }, // Keterangan (notes bisa panjang)
-      { wch: 12 }, // Tipe (Pemasukan/Pengeluaran)
-      { wch: 15 }, // Jumlah (currency format)
-    ];
-    worksheet["!cols"] = columnWidths;
-
-    // Step 4: Add worksheet ke workbook dengan nama sheet "Transaksi"
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Transaksi");
-
-    // Step 5: Generate nama file dinamis dengan timestamp
-    // Format: Laporan_Keuangan_YYYY-MM-DD.xlsx
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, "0"); // 01-12
-    const day = String(today.getDate()).padStart(2, "0"); // 01-31
-    const dateString = `${year}-${month}-${day}`;
-    const fileName = `Laporan_Keuangan_${dateString}.xlsx`;
-
-    // Step 6: Buat path untuk simpan file di device storage
-    // Gunakan documentDirectory untuk better compatibility di iOS dan Android
-    // File akan disimpan di: /data/data/com.adeandro.Artha/files/documents/ (Android)
-    //                   atau: /var/mobile/Containers/Data/Documents/ (iOS)
-    const docsDir =
-      (FileSystem as any).documentDirectory ||
-      (FileSystem as any).cacheDirectory;
-    const filePath = `${docsDir}${fileName}`;
-
-    // Step 7: Konversi workbook ke base64 string
-    // XLSX.write dengan type 'base64' menghasilkan base64-encoded string
-    // Base64 adalah format standar untuk binary data di React Native
-    const wbout = XLSX.write(workbook, {
-      type: "base64",
-      bookType: "xlsx", // Format Excel modern (.xlsx)
-    });
-
-    // Step 8: Simpan file ke device storage secara asynchronous
-    // Menggunakan base64 encoding untuk binary Excel data
-    await FileSystem.writeAsStringAsync(filePath, wbout, {
-      encoding: "base64",
-    });
-
-    // Step 9: Trigger sharing dialog ke user
-    // User bisa pilih untuk save ke storage, email, messaging apps, dll
+    // Trigger sharing dialog
     await Sharing.shareAsync(filePath, {
       mimeType:
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // MIME type untuk .xlsx
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       dialogTitle: "Bagikan Laporan Keuangan",
-      UTI: "com.microsoft.excel.xlsx", // iOS UTI (Uniform Type Identifier)
+      UTI: "com.microsoft.excel.xlsx",
     });
 
-    // Log success untuk debugging
     console.log("✅ Export Excel berhasil");
     console.log("📁 File path:", filePath);
     console.log("📊 Total transaksi:", transactions.length);
 
     return true;
   } catch (error) {
-    // Log error details untuk debugging
     console.error("❌ Export Excel gagal:", error);
-    throw error; // Re-throw agar bisa di-handle di component yang call function ini
+    throw error;
+  }
+};
+
+/**
+ * Export multiple financial books ke separate Excel files
+ * @param transactions - Semua transactions
+ * @param categoryMap - Category ID to name mapping
+ * @param dashboards - Array of dashboards
+ */
+export const exportTransactionsToExcelMultiDashboard = async (
+  transactions: Transaction[],
+  categoryMap: Record<string, string> = {},
+  dashboards: Dashboard[] = [],
+): Promise<boolean> => {
+  try {
+    if (!transactions || transactions.length === 0) {
+      throw new Error("Tidak ada data transaksi untuk dieksport");
+    }
+
+    if (dashboards.length === 0) {
+      throw new Error("Tidak ada buku keuangan");
+    }
+
+    const exportedFiles: string[] = [];
+    let totalProcessed = 0;
+
+    // Export untuk setiap dashboard yang ada transaksi
+    for (const dashboard of dashboards) {
+      // Filter transactions untuk dashboard ini
+      const dashboardTransactions = transactions.filter(
+        (t) => t.dashboardId === dashboard.id || t.dashboardId === undefined,
+      );
+
+      if (dashboardTransactions.length === 0) {
+        console.log(`⚠️  Tidak ada transaksi untuk "${dashboard.name}"`);
+        continue;
+      }
+
+      try {
+        const filePath = await exportSingleDashboard(
+          dashboardTransactions,
+          categoryMap,
+          dashboard.name,
+        );
+        exportedFiles.push(filePath);
+        totalProcessed += dashboardTransactions.length;
+        console.log(
+          `✅ Export "${dashboard.name}" berhasil (${dashboardTransactions.length} transaksi)`,
+        );
+      } catch (error) {
+        console.error(`❌ Export "${dashboard.name}" gagal:`, error);
+        // Continue to next dashboard instead of throwing
+      }
+    }
+
+    if (exportedFiles.length === 0) {
+      throw new Error("Tidak ada file yang berhasil dibuat");
+    }
+
+    // Share all files
+    // Untuk single file, langsung share
+    if (exportedFiles.length === 1) {
+      await Sharing.shareAsync(exportedFiles[0], {
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        dialogTitle: "Bagikan Laporan Keuangan",
+        UTI: "com.microsoft.excel.xlsx",
+      });
+    } else {
+      // Untuk multiple files, share semuanya
+      await Sharing.shareAsync(exportedFiles, {
+        mimeType: "application/zip",
+        dialogTitle: `Bagikan ${exportedFiles.length} Laporan Keuangan`,
+      });
+    }
+
+    console.log(`✅ Export ${exportedFiles.length} file berhasil`);
+    console.log(`📊 Total transaksi: ${totalProcessed}`);
+
+    return true;
+  } catch (error) {
+    console.error("❌ Multi-dashboard export gagal:", error);
+    throw error;
   }
 };
 
